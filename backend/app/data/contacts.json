@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Dr. Maya Patel",
+    "role": "Associate Professor",
+    "department": "Computer Science",
+    "email": "maya.patel@uniassist.edu",
+    "office": "Engineering Hall 312",
+    "hours": "Tue 1-3 PM, Thu 10-11 AM",
+    "phone": "555-0142"
+  },
+  {
+    "name": "Dr. Priya Nair",
+    "role": "Department Chair",
+    "department": "Computer Science",
+    "email": "priya.nair@uniassist.edu",
+    "office": "Engineering Hall 330",
+    "hours": "Tue 3-5 PM",
+    "phone": "555-0133"
+  },
+  {
+    "name": "Jordan Lee",
+    "role": "Academic Advisor",
+    "department": "Registrar",
+    "email": "jordan.lee@uniassist.edu",
+    "office": "Student Services Center 104",
+    "hours": "Mon-Fri 9 AM-4 PM",
+    "phone": "555-0188"
+  },
+  {
+    "name": "Prof. Elena Garcia",
+    "role": "Department Chair",
+    "department": "Biology",
+    "email": "elena.garcia@uniassist.edu",
+    "office": "Science Building 220",
+    "hours": "Wed 2-4 PM",
+    "phone": "555-0167"
+  },
+  {
+    "name": "Avery Thompson",
+    "role": "Financial Aid Counselor",
+    "department": "Financial Aid",
+    "email": "avery.thompson@uniassist.edu",
+    "office": "Student Services Center 210",
+    "hours": "Mon, Wed, Fri 10 AM-3 PM",
+    "phone": "555-0119"
+  }
+]

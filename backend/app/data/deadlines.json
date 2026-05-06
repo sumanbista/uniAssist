@@ -1,0 +1,30 @@
+[
+  {
+    "type": "add_drop",
+    "term": "Spring 2026",
+    "date": "2026-01-20",
+    "description": "Last day to add or drop a Spring 2026 course without a W grade.",
+    "last_updated": "2026-01-01"
+  },
+  {
+    "type": "withdrawal",
+    "term": "Spring 2026",
+    "date": "2026-04-03",
+    "description": "Last day to withdraw from a Spring 2026 course.",
+    "last_updated": "2026-01-01"
+  },
+  {
+    "type": "graduation_application",
+    "term": "Spring 2026",
+    "date": "2026-02-15",
+    "description": "Priority deadline to apply for Spring 2026 graduation.",
+    "last_updated": "2026-01-01"
+  },
+  {
+    "type": "add_drop",
+    "term": "Fall 2026",
+    "date": "2026-09-01",
+    "description": "Last day to add or drop a Fall 2026 course without a W grade.",
+    "last_updated": "2026-04-15"
+  }
+]

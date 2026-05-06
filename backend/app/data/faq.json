@@ -1,0 +1,22 @@
+[
+  {
+    "question": "How do I register for classes?",
+    "answer": "Log in to the student portal, open Registration, select your term, add courses to your plan, and submit your schedule.",
+    "keywords": ["register", "classes", "course enrollment", "schedule"]
+  },
+  {
+    "question": "What should I do if I have a registration hold?",
+    "answer": "Open the Holds page in the student portal to see the office that placed the hold, then contact that office before registration.",
+    "keywords": ["hold", "registration hold", "blocked"]
+  },
+  {
+    "question": "Can I waitlist a full class?",
+    "answer": "If a course supports waitlisting, choose Join Waitlist from the registration page and monitor your university email for seat notifications.",
+    "keywords": ["waitlist", "full class", "closed course"]
+  },
+  {
+    "question": "How do I change sections after registering?",
+    "answer": "Use the Swap option in Registration to replace one section with another without dropping your existing seat first.",
+    "keywords": ["swap", "section", "change class"]
+  }
+]

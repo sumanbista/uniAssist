@@ -1,0 +1,34 @@
+[
+  {
+    "title": "Spring Career Fair",
+    "date": "2026-02-18",
+    "time": "11:00 AM",
+    "location": "University Center Ballroom",
+    "category": "career",
+    "description": "Meet employers hiring interns and full-time graduates."
+  },
+  {
+    "title": "Undergraduate Research Showcase",
+    "date": "2026-03-05",
+    "time": "2:00 PM",
+    "location": "Library Atrium",
+    "category": "academic",
+    "description": "Student research poster sessions across all colleges."
+  },
+  {
+    "title": "Registration Help Lab",
+    "date": "2026-04-02",
+    "time": "10:00 AM",
+    "location": "Student Services Center 101",
+    "category": "registration",
+    "description": "Drop-in assistance for course planning and registration holds."
+  },
+  {
+    "title": "Campus Wellness Night",
+    "date": "2026-04-16",
+    "time": "6:00 PM",
+    "location": "Recreation Center",
+    "category": "wellness",
+    "description": "Workshops, fitness classes, and counseling resources."
+  }
+]

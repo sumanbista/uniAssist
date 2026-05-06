@@ -1,0 +1,44 @@
+[
+  {
+    "term": "Spring 2026",
+    "date": "2026-01-12",
+    "title": "First day of classes",
+    "category": "term",
+    "is_holiday": false
+  },
+  {
+    "term": "Spring 2026",
+    "date": "2026-01-19",
+    "title": "Martin Luther King Jr. Day",
+    "category": "holiday",
+    "is_holiday": true
+  },
+  {
+    "term": "Spring 2026",
+    "date": "2026-03-16",
+    "title": "Spring break begins",
+    "category": "break",
+    "is_holiday": false
+  },
+  {
+    "term": "Spring 2026",
+    "date": "2026-05-01",
+    "title": "Last day of classes",
+    "category": "term",
+    "is_holiday": false
+  },
+  {
+    "term": "Fall 2026",
+    "date": "2026-08-24",
+    "title": "First day of classes",
+    "category": "term",
+    "is_holiday": false
+  },
+  {
+    "term": "Fall 2026",
+    "date": "2026-11-26",
+    "title": "Thanksgiving recess",
+    "category": "holiday",
+    "is_holiday": true
+  }
+]
