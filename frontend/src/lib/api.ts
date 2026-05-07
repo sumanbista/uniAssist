@@ -1,9 +1,20 @@
+export type ToolTrace = {
+  tool_name: string | null;
+  confidence: number;
+  parameters: Record<string, unknown>;
+  execution_time_ms: number;
+  status: string;
+  source: string | null;
+  message: string | null;
+};
+
 export type QueryResponse = {
   answer: string;
   tool_used: string | null;
   confidence: number;
   data: unknown;
   status: "success" | "fallback" | string;
+  trace: ToolTrace;
 };
 
 const API_BASE_URL =

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.core.logging import get_logger
 from app.models.query import QueryResponse, RoutingDecision
+from app.models.schemas import ToolTrace
 from app.router.fallback_handler import fallback_response
 from app.services.response_formatter import ResponseFormatter
 from app.services.tool_registry import ToolRegistry
@@ -31,20 +32,53 @@ class RoutingLogic:
         """Execute a validated decision or return a fallback response."""
 
         if decision.confidence < CONFIDENCE_THRESHOLD:
-            return fallback_response(confidence=decision.confidence)
+            return fallback_response(
+                confidence=decision.confidence,
+                tool_name=decision.tool or None,
+                parameters=decision.parameters,
+                message="Router confidence was below the execution threshold.",
+            )
 
         tool = self.registry.get_tool(decision.tool)
         if tool is None:
             logger.error("Router selected unknown tool: %s", decision.tool)
-            return fallback_response(confidence=decision.confidence)
+            return fallback_response(
+                confidence=decision.confidence,
+                tool_name=decision.tool,
+                parameters=decision.parameters,
+                message="Router selected an unavailable tool.",
+            )
 
         if not isinstance(decision.parameters, dict):
             logger.error("Router returned invalid parameters: %s", decision.parameters)
-            return fallback_response(confidence=decision.confidence)
+            return fallback_response(
+                confidence=decision.confidence,
+                tool_name=decision.tool,
+                message="Router returned invalid tool parameters.",
+            )
 
-        tool_result = tool.run(decision.parameters)
+        tool_result, trace = self.registry.run_tool_with_trace(
+            decision.tool,
+            decision.parameters,
+            decision.confidence,
+        )
         if tool_result.get("status") != "success":
-            return fallback_response(confidence=decision.confidence, data=tool_result)
+            return QueryResponse(
+                answer="I'm not confident about that request. You can ask about deadlines, events, contacts, calendar dates, or registration help.",
+                tool_used=decision.tool,
+                confidence=decision.confidence,
+                data=tool_result,
+                status="fallback",
+                trace=ToolTrace(
+                    tool_name=trace.tool_name,
+                    confidence=trace.confidence,
+                    parameters=trace.parameters,
+                    execution_time_ms=trace.execution_time_ms,
+                    status="error",
+                    source=trace.source,
+                    message=trace.message or "Tool execution failed",
+                ),
+            )
 
         answer = self.response_formatter.format_answer(query, decision, tool_result)
         return QueryResponse(
@@ -52,6 +86,7 @@ class RoutingLogic:
             tool_used=decision.tool,
             confidence=decision.confidence,
             data=tool_result.get("data", {}),
+            trace=trace,
         )
 
 

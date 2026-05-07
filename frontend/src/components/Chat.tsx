@@ -57,6 +57,7 @@ export function Chat() {
           status: response.status,
           toolUsed: response.tool_used,
           confidence: response.confidence,
+          trace: response.trace,
         },
       ]);
     } catch {
@@ -70,6 +71,15 @@ export function Chat() {
           role: "assistant",
           content: friendlyError,
           status: "error",
+          trace: {
+            tool_name: null,
+            confidence: 0,
+            parameters: {},
+            execution_time_ms: 0,
+            status: "error",
+            source: null,
+            message: "Network request to the backend failed.",
+          },
         },
       ]);
     } finally {

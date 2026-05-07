@@ -1,9 +1,14 @@
 """Central registry for all structured tools."""
 
+import time
 from typing import Any
 
+from app.core.logging import get_logger
+from app.models.schemas import ToolTrace
 from app.models.tool import ToolMetadata
 from app.services.tool_interface import Tool
+
+logger = get_logger(__name__)
 
 
 class ToolRegistry:
@@ -37,3 +42,72 @@ class ToolRegistry:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
         return tool.run(params)
+
+    def run_tool_with_trace(
+        self,
+        tool_name: str,
+        params: dict[str, Any],
+        confidence: float,
+    ) -> tuple[dict[str, Any], ToolTrace]:
+        """Execute a registered tool and return its result with trace metadata."""
+
+        start_time = time.perf_counter()
+        tool = self.get_tool(tool_name)
+        if tool is None:
+            return self._error_result_with_trace(
+                tool_name=tool_name,
+                params=params,
+                confidence=confidence,
+                start_time=start_time,
+                message=f"Unknown tool: {tool_name}",
+            )
+
+        try:
+            result = tool.run(params)
+        except Exception as exc:
+            logger.error("Tool execution failed for %s: %s", tool_name, exc)
+            return self._error_result_with_trace(
+                tool_name=tool_name,
+                params=params,
+                confidence=confidence,
+                start_time=start_time,
+                message="Tool execution failed",
+            )
+
+        trace = ToolTrace(
+            tool_name=tool_name,
+            confidence=confidence,
+            parameters=params,
+            execution_time_ms=self._elapsed_ms(start_time),
+            status=str(result.get("status", "error")),
+            source=result.get("source"),
+            message=result.get("message"),
+        )
+        return result, trace
+
+    def _error_result_with_trace(
+        self,
+        tool_name: str,
+        params: dict[str, Any],
+        confidence: float,
+        start_time: float,
+        message: str,
+    ) -> tuple[dict[str, Any], ToolTrace]:
+        """Create a safe error result and matching trace."""
+
+        return (
+            {"status": "error", "message": message},
+            ToolTrace(
+                tool_name=tool_name,
+                confidence=confidence,
+                parameters=params,
+                execution_time_ms=self._elapsed_ms(start_time),
+                status="error",
+                message=message,
+            ),
+        )
+
+    def _elapsed_ms(self, start_time: float) -> int:
+        """Return elapsed time in whole milliseconds."""
+
+        return max(0, round((time.perf_counter() - start_time) * 1000))

@@ -1,3 +1,6 @@
+import { ToolTrace as ToolTraceData } from "@/lib/api";
+import { ToolTrace } from "@/components/ToolTrace";
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -5,6 +8,7 @@ export type ChatMessage = {
   status?: string;
   toolUsed?: string | null;
   confidence?: number;
+  trace?: ToolTraceData;
 };
 
 type MessageBubbleProps = {
@@ -35,6 +39,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             ) : null}
           </div>
         ) : null}
+        {!isUser && message.trace ? <ToolTrace trace={message.trace} /> : null}
       </div>
     </article>
   );

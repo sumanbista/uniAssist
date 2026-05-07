@@ -21,6 +21,15 @@ const MOCK_RESPONSES: Array<{
         count: 1,
       },
       status: "success",
+      trace: {
+        tool_name: "deadline_query",
+        confidence: 0.94,
+        parameters: { type: "add_drop", term: "Spring 2026" },
+        execution_time_ms: 12,
+        status: "success",
+        source: "mock",
+        message: null,
+      },
     },
   },
   {
@@ -41,6 +50,15 @@ const MOCK_RESPONSES: Array<{
         count: 1,
       },
       status: "success",
+      trace: {
+        tool_name: "contact_lookup",
+        confidence: 0.87,
+        parameters: { department: "computer science", role: "chair" },
+        execution_time_ms: 10,
+        status: "success",
+        source: "mock",
+        message: null,
+      },
     },
   },
   {
@@ -52,6 +70,15 @@ const MOCK_RESPONSES: Array<{
       confidence: 0.91,
       data: { results: [], count: 0 },
       status: "success",
+      trace: {
+        tool_name: "reg_faq",
+        confidence: 0.91,
+        parameters: { query: "register classes" },
+        execution_time_ms: 9,
+        status: "success",
+        source: "mock",
+        message: null,
+      },
     },
   },
 ];
@@ -74,6 +101,15 @@ export async function sendMockQuery(query: string): Promise<QueryResponse> {
       confidence: 0.2,
       data: {},
       status: "fallback",
+      trace: {
+        tool_name: null,
+        confidence: 0.2,
+        parameters: {},
+        execution_time_ms: 0,
+        status: "fallback",
+        source: null,
+        message: "Mock fallback: no matching tool selected.",
+      },
     }
   );
 }
