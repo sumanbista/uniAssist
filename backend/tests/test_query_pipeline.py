@@ -164,6 +164,40 @@ class QueryPipelineTests(unittest.TestCase):
         self.assertEqual(response.trace.tool_name, "deadline_query")
         self.assertIsNotNone(response.trace.message)
 
+    def test_query_endpoint_persists_log(self) -> None:
+        """Query endpoint should persist telemetry for successful requests."""
+
+        before = self.client.get("/analytics/summary?role=admin").json()["total_queries"]
+        response = self.client.post(
+            "/query",
+            json={"query": "When is add/drop deadline?", "role": "student"},
+        )
+        after = self.client.get("/analytics/summary?role=admin").json()["total_queries"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(after, before + 1)
+
+    def test_fallback_query_is_logged(self) -> None:
+        """Fallback requests should increment fallback analytics."""
+
+        before = self.client.get("/analytics/summary?role=admin").json()["fallback_count"]
+        response = self.client.post(
+            "/query",
+            json={"query": "Tell me a joke", "role": "student"},
+        )
+        after = self.client.get("/analytics/summary?role=admin").json()["fallback_count"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(after, before + 1)
+
+    def test_analytics_requires_admin_role(self) -> None:
+        """Analytics endpoints should be restricted to admins."""
+
+        response = self.client.get("/analytics/summary?role=student")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"error": "Access denied"})
+
 
 if __name__ == "__main__":
     unittest.main()

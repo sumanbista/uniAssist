@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ]
     BASE_DIR: Path = Path(__file__).resolve().parents[1]
     DATA_PATH: Path = BASE_DIR / "data"
+    LOG_DB_PATH: Path = DATA_PATH / "query_logs.sqlite3"
 
     CONTACTS_DATA_FILE: str = "contacts.json"
     CALENDAR_DATA_FILE: str = "calendar.json"
