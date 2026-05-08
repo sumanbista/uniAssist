@@ -2,7 +2,15 @@
 
 from typing import Final
 
-ROLE_PUBLIC: Final[str] = "public"
+ROLE_STUDENT: Final[str] = "student"
+ROLE_FACULTY: Final[str] = "faculty"
+ROLE_ADMIN: Final[str] = "admin"
+
+ALL_ROLES: Final[tuple[str, ...]] = (
+    ROLE_STUDENT,
+    ROLE_FACULTY,
+    ROLE_ADMIN,
+)
 
 TOOL_CONTACT_LOOKUP: Final[str] = "contact_lookup"
 TOOL_CALENDAR_QUERY: Final[str] = "calendar_query"

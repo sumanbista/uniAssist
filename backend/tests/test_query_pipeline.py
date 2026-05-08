@@ -58,6 +58,67 @@ class QueryPipelineTests(unittest.TestCase):
         self.assertEqual(body["trace"]["status"], "fallback")
         self.assertLess(body["trace"]["confidence"], 0.7)
 
+    def test_student_can_access_registration_faq(self) -> None:
+        """Students should be allowed to execute registration FAQ."""
+
+        response = self.client.post(
+            "/query",
+            json={"query": "How do I register for classes?", "role": "student"},
+        )
+        body = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["tool_used"], "reg_faq")
+        self.assertTrue(body["trace"]["authorized"])
+        self.assertEqual(body["trace"]["role"], "student")
+
+    def test_faculty_cannot_access_registration_faq(self) -> None:
+        """Faculty should receive access denied before tool execution."""
+
+        response = self.client.post(
+            "/query",
+            json={"query": "How do I resolve registration holds?", "role": "faculty"},
+        )
+        body = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["data"]["error_type"], "access_denied")
+        self.assertEqual(body["trace"]["error_type"], "access_denied")
+        self.assertFalse(body["trace"]["authorized"])
+        self.assertEqual(body["trace"]["role"], "faculty")
+
+    def test_admin_can_access_deadline_query(self) -> None:
+        """Admins should be allowed to execute deadline queries."""
+
+        response = self.client.post(
+            "/query",
+            json={"query": "When is add/drop deadline?", "role": "admin"},
+        )
+        body = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["tool_used"], "deadline_query")
+        self.assertTrue(body["trace"]["authorized"])
+        self.assertEqual(body["trace"]["role"], "admin")
+
+    def test_invalid_role_returns_structured_error(self) -> None:
+        """Unsupported roles should return a frontend-readable error."""
+
+        response = self.client.post(
+            "/query",
+            json={"query": "When is add/drop deadline?", "role": "guest"},
+        )
+        body = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["answer"], "Unsupported role. Choose student, faculty, or admin.")
+        self.assertEqual(body["trace"]["error_type"], "invalid_role")
+        self.assertEqual(body["trace"]["role"], "guest")
+
     def test_empty_query_uses_fallback(self) -> None:
         """Empty input should return a structured fallback."""
 

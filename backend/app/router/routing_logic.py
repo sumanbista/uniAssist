@@ -7,8 +7,10 @@ from pydantic import ValidationError
 
 from app.core.logging import get_logger
 from app.models.query import QueryResponse, RoutingDecision
+from app.models.roles import UserRole
 from app.models.schemas import ToolTrace
 from app.router.fallback_handler import fallback_response
+from app.services.auth_guard import AccessDeniedError, authorize_tool_access
 from app.services.response_formatter import ResponseFormatter
 from app.services.tool_registry import ToolRegistry
 
@@ -28,7 +30,12 @@ class RoutingLogic:
         self.registry = registry
         self.response_formatter = response_formatter or ResponseFormatter()
 
-    def handle_decision(self, query: str, decision: RoutingDecision) -> QueryResponse:
+    def handle_decision(
+        self,
+        query: str,
+        decision: RoutingDecision,
+        role: UserRole = UserRole.STUDENT,
+    ) -> QueryResponse:
         """Execute a validated decision or return a fallback response."""
 
         if decision.confidence < CONFIDENCE_THRESHOLD:
@@ -37,6 +44,8 @@ class RoutingLogic:
                 tool_name=decision.tool or None,
                 parameters=decision.parameters,
                 message="Router confidence was below the execution threshold.",
+                role=role.value,
+                error_type="low_confidence",
             )
 
         tool = self.registry.get_tool(decision.tool)
@@ -47,6 +56,8 @@ class RoutingLogic:
                 tool_name=decision.tool,
                 parameters=decision.parameters,
                 message="Router selected an unavailable tool.",
+                role=role.value,
+                error_type="invalid_tool",
             )
 
         if not isinstance(decision.parameters, dict):
@@ -55,12 +66,41 @@ class RoutingLogic:
                 confidence=decision.confidence,
                 tool_name=decision.tool,
                 message="Router returned invalid tool parameters.",
+                role=role.value,
+                error_type="invalid_parameters",
+            )
+
+        try:
+            authorize_tool_access(tool, role)
+        except AccessDeniedError as exc:
+            return QueryResponse(
+                answer=str(exc),
+                tool_used=decision.tool,
+                confidence=decision.confidence,
+                data={
+                    "status": "error",
+                    "error_type": "access_denied",
+                    "message": str(exc),
+                },
+                status="error",
+                trace=ToolTrace(
+                    tool_name=decision.tool,
+                    confidence=decision.confidence,
+                    parameters=decision.parameters,
+                    status="error",
+                    role=role.value,
+                    authorized=False,
+                    error_type="access_denied",
+                    message=str(exc),
+                ),
             )
 
         tool_result, trace = self.registry.run_tool_with_trace(
             decision.tool,
             decision.parameters,
             decision.confidence,
+            role=role.value,
+            authorized=True,
         )
         if tool_result.get("status") != "success":
             return QueryResponse(
@@ -77,6 +117,9 @@ class RoutingLogic:
                     status="error",
                     source=trace.source,
                     message=trace.message or "Tool execution failed",
+                    role=role.value,
+                    authorized=False,
+                    error_type=trace.error_type or "tool_error",
                 ),
             )
 

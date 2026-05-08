@@ -15,3 +15,6 @@ class ToolTrace(BaseModel):
     status: str
     source: str | None = None
     message: str | None = None
+    role: str | None = None
+    authorized: bool = False
+    error_type: str | None = None

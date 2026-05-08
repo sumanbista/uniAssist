@@ -46,6 +46,16 @@ export function ToolTrace({ trace }: ToolTraceProps) {
         <div className="border-t border-zinc-200 px-3 py-3">
           <dl className="grid gap-3 sm:grid-cols-2">
             <div>
+              <dt className="font-medium text-zinc-500">Role</dt>
+              <dd className="mt-1 text-zinc-900">{trace.role ?? "none"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-zinc-500">Authorized</dt>
+              <dd className="mt-1 text-zinc-900">
+                {trace.authorized ? "yes" : "no"}
+              </dd>
+            </div>
+            <div>
               <dt className="font-medium text-zinc-500">Confidence</dt>
               <dd className="mt-1 text-zinc-900">
                 {Math.round(trace.confidence * 100)}%
@@ -63,6 +73,12 @@ export function ToolTrace({ trace }: ToolTraceProps) {
               <dt className="font-medium text-zinc-500">Tool</dt>
               <dd className="mt-1 text-zinc-900">{formatToolName(trace.tool_name)}</dd>
             </div>
+            {trace.error_type ? (
+              <div>
+                <dt className="font-medium text-zinc-500">Error type</dt>
+                <dd className="mt-1 text-zinc-900">{trace.error_type}</dd>
+              </div>
+            ) : null}
           </dl>
 
           {trace.message ? (

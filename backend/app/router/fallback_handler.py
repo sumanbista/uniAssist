@@ -17,20 +17,28 @@ def fallback_response(
     tool_name: str | None = None,
     parameters: dict[str, Any] | None = None,
     message: str | None = None,
+    role: str | None = None,
+    authorized: bool = False,
+    error_type: str | None = None,
+    status: str = "fallback",
 ) -> QueryResponse:
     """Return a safe response when no reliable tool answer is available."""
 
+    answer = message if status == "error" and message else FALLBACK_ANSWER
     return QueryResponse(
-        answer=FALLBACK_ANSWER,
+        answer=answer,
         tool_used=None,
         confidence=confidence,
         data=data or {},
-        status="fallback",
+        status=status,
         trace=ToolTrace(
             tool_name=tool_name,
             confidence=confidence,
             parameters=parameters or {},
-            status="fallback",
+            status=status,
             message=message or FALLBACK_ANSWER,
+            role=role,
+            authorized=authorized,
+            error_type=error_type,
         ),
     )

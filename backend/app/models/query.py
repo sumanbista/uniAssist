@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.models.roles import DEFAULT_ROLE
 from app.models.schemas import ToolTrace
 
 
@@ -12,7 +13,7 @@ class QueryRequest(BaseModel):
 
     query: str = Field(default="")
     message: str = Field(default="")
-    role: str | None = None
+    role: str = DEFAULT_ROLE.value
 
     @model_validator(mode="after")
     def normalize_query_text(self) -> "QueryRequest":

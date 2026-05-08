@@ -1,4 +1,4 @@
-import { QueryResponse } from "@/lib/api";
+import { QueryResponse, UserRole } from "@/lib/api";
 
 const MOCK_RESPONSES: Array<{
   keywords: string[];
@@ -29,6 +29,9 @@ const MOCK_RESPONSES: Array<{
         status: "success",
         source: "mock",
         message: null,
+        role: "student",
+        authorized: true,
+        error_type: null,
       },
     },
   },
@@ -58,6 +61,9 @@ const MOCK_RESPONSES: Array<{
         status: "success",
         source: "mock",
         message: null,
+        role: "student",
+        authorized: true,
+        error_type: null,
       },
     },
   },
@@ -78,12 +84,18 @@ const MOCK_RESPONSES: Array<{
         status: "success",
         source: "mock",
         message: null,
+        role: "student",
+        authorized: true,
+        error_type: null,
       },
     },
   },
 ];
 
-export async function sendMockQuery(query: string): Promise<QueryResponse> {
+export async function sendMockQuery(
+  query: string,
+  role: UserRole,
+): Promise<QueryResponse> {
   const normalizedQuery = query.trim().toLowerCase();
   const match = MOCK_RESPONSES.find((mockResponse) =>
     mockResponse.keywords.some((keyword) => normalizedQuery.includes(keyword)),
@@ -93,8 +105,47 @@ export async function sendMockQuery(query: string): Promise<QueryResponse> {
     window.setTimeout(resolve, 250);
   });
 
-  return (
-    match?.response ?? {
+  if (match?.response) {
+    if (
+      role === "faculty" &&
+      ["deadline_query", "reg_faq"].includes(match.response.tool_used ?? "")
+    ) {
+      return {
+        answer: "You do not have permission to access this resource.",
+        tool_used: match.response.tool_used,
+        confidence: match.response.confidence,
+        data: {
+          status: "error",
+          error_type: "access_denied",
+          message: "You do not have permission to access this resource.",
+        },
+        status: "error",
+        trace: {
+          tool_name: match.response.tool_used,
+          confidence: match.response.confidence,
+          parameters: match.response.trace.parameters,
+          execution_time_ms: 0,
+          status: "error",
+          source: null,
+          message: "You do not have permission to access this resource.",
+          role,
+          authorized: false,
+          error_type: "access_denied",
+        },
+      };
+    }
+
+    return {
+      ...match.response,
+      trace: {
+        ...match.response.trace,
+        role,
+        authorized: true,
+      },
+    };
+  }
+
+  return {
       answer:
         "Mock response: I am not confident about that request. Try deadlines, contacts, events, calendar dates, or registration help.",
       tool_used: null,
@@ -109,7 +160,9 @@ export async function sendMockQuery(query: string): Promise<QueryResponse> {
         status: "fallback",
         source: null,
         message: "Mock fallback: no matching tool selected.",
+        role,
+        authorized: false,
+        error_type: "low_confidence",
       },
-    }
-  );
+    };
 }

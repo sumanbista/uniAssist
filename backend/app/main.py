@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.query import QueryRequest, QueryResponse
+from app.models.roles import UserRole
 from app.models.tool import ToolMetadata, ToolRequest
 from app.router.fallback_handler import fallback_response
 from app.router.intent_classifier import IntentClassifier
@@ -66,11 +67,21 @@ def query_university_info(request: QueryRequest) -> QueryResponse:
 
     query_text = request.query.strip()
     if not query_text:
-        return fallback_response()
+        return fallback_response(role=request.role)
+
+    try:
+        user_role = UserRole(request.role)
+    except ValueError:
+        return fallback_response(
+            role=request.role,
+            status="error",
+            error_type="invalid_role",
+            message="Unsupported role. Choose student, faculty, or admin.",
+        )
 
     try:
         decision = intent_classifier.classify(query_text)
-        return routing_logic.handle_decision(query_text, decision)
+        return routing_logic.handle_decision(query_text, decision, user_role)
     except Exception as exc:
         logger.error("Query pipeline failed: %s", exc)
         return fallback_response()

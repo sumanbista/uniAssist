@@ -3,7 +3,7 @@
 from typing import Any
 
 from app.core.config import settings
-from app.core.constants import ROLE_PUBLIC, TOOL_REG_FAQ
+from app.core.constants import ROLE_ADMIN, ROLE_STUDENT, TOOL_REG_FAQ
 from app.core.logging import get_logger
 from app.tools.base_json_tool import BaseJsonTool
 
@@ -15,7 +15,7 @@ class RegistrationFaqTool(BaseJsonTool):
 
     name = TOOL_REG_FAQ
     description = "Find answers to registration frequently asked questions."
-    allowed_roles = [ROLE_PUBLIC]
+    allowed_roles = [ROLE_STUDENT, ROLE_ADMIN]
     source_file = settings.FAQ_DATA_FILE
     last_updated = "2026-01-10"
 

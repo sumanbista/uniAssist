@@ -3,7 +3,7 @@
 from typing import Any
 
 from app.core.config import settings
-from app.core.constants import ROLE_PUBLIC, TOOL_EVENTS_FETCH
+from app.core.constants import ROLE_ADMIN, ROLE_FACULTY, ROLE_STUDENT, TOOL_EVENTS_FETCH
 from app.core.logging import get_logger
 from app.tools.base_json_tool import BaseJsonTool
 
@@ -15,7 +15,7 @@ class EventsFetchTool(BaseJsonTool):
 
     name = TOOL_EVENTS_FETCH
     description = "Fetch campus events by date or category."
-    allowed_roles = [ROLE_PUBLIC]
+    allowed_roles = [ROLE_STUDENT, ROLE_FACULTY, ROLE_ADMIN]
     source_file = settings.EVENTS_DATA_FILE
     last_updated = "2026-01-10"
 

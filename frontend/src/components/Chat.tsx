@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { sendQuery } from "@/lib/api";
+import { sendQuery, UserRole } from "@/lib/api";
 import { ChatMessage, MessageBubble } from "@/components/MessageBubble";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { SuggestedPrompts } from "@/components/SuggestedPrompts";
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -22,6 +23,7 @@ export function Chat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [role, setRole] = useState<UserRole>("student");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export function Chat() {
     ]);
 
     try {
-      const response = await sendQuery(trimmedQuery);
+      const response = await sendQuery(trimmedQuery, role);
       setMessages((currentMessages) => [
         ...currentMessages,
         {
@@ -79,6 +81,9 @@ export function Chat() {
             status: "error",
             source: null,
             message: "Network request to the backend failed.",
+            role,
+            authorized: false,
+            error_type: "network_error",
           },
         },
       ]);
@@ -100,7 +105,10 @@ export function Chat() {
             <p className="text-sm font-medium text-teal-700">UniAssist AI</p>
             <h1 className="text-2xl font-semibold text-zinc-950">University assistant</h1>
           </div>
-          <p className="text-sm text-zinc-500">Connected to /query</p>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <RoleSwitcher value={role} onChange={setRole} />
+            <p className="text-sm text-zinc-500">Connected to /query</p>
+          </div>
         </div>
       </header>
 

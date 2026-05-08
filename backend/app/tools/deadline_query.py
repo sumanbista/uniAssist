@@ -3,7 +3,7 @@
 from typing import Any
 
 from app.core.config import settings
-from app.core.constants import ROLE_PUBLIC, TOOL_DEADLINE_QUERY
+from app.core.constants import ROLE_ADMIN, ROLE_STUDENT, TOOL_DEADLINE_QUERY
 from app.core.logging import get_logger
 from app.tools.base_json_tool import BaseJsonTool
 
@@ -15,7 +15,7 @@ class DeadlineQueryTool(BaseJsonTool):
 
     name = TOOL_DEADLINE_QUERY
     description = "Find academic deadlines by deadline type and term."
-    allowed_roles = [ROLE_PUBLIC]
+    allowed_roles = [ROLE_STUDENT, ROLE_ADMIN]
     source_file = settings.DEADLINES_DATA_FILE
     last_updated = "2026-01-10"
 

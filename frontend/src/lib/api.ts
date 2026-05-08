@@ -6,7 +6,12 @@ export type ToolTrace = {
   status: string;
   source: string | null;
   message: string | null;
+  role: UserRole | string | null;
+  authorized: boolean;
+  error_type: string | null;
 };
+
+export type UserRole = "student" | "faculty" | "admin";
 
 export type QueryResponse = {
   answer: string;
@@ -21,10 +26,13 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
 
-export async function sendQuery(query: string): Promise<QueryResponse> {
+export async function sendQuery(
+  query: string,
+  role: UserRole,
+): Promise<QueryResponse> {
   if (USE_MOCK_API) {
     const { sendMockQuery } = await import("@/lib/mockApi");
-    return sendMockQuery(query);
+    return sendMockQuery(query, role);
   }
 
   const response = await fetch(`${API_BASE_URL}/query`, {
@@ -32,7 +40,7 @@ export async function sendQuery(query: string): Promise<QueryResponse> {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ message: query, role }),
   });
 
   if (!response.ok) {

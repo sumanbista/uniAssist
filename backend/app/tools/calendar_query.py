@@ -3,7 +3,7 @@
 from typing import Any
 
 from app.core.config import settings
-from app.core.constants import ROLE_PUBLIC, TOOL_CALENDAR_QUERY
+from app.core.constants import ROLE_ADMIN, ROLE_FACULTY, ROLE_STUDENT, TOOL_CALENDAR_QUERY
 from app.core.logging import get_logger
 from app.tools.base_json_tool import BaseJsonTool
 
@@ -15,7 +15,7 @@ class CalendarQueryTool(BaseJsonTool):
 
     name = TOOL_CALENDAR_QUERY
     description = "Find academic calendar dates by term, category, or holiday."
-    allowed_roles = [ROLE_PUBLIC]
+    allowed_roles = [ROLE_STUDENT, ROLE_FACULTY, ROLE_ADMIN]
     source_file = settings.CALENDAR_DATA_FILE
     last_updated = "2026-01-10"
 

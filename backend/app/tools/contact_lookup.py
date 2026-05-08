@@ -3,7 +3,7 @@
 from typing import Any
 
 from app.core.config import settings
-from app.core.constants import ROLE_PUBLIC, TOOL_CONTACT_LOOKUP
+from app.core.constants import ROLE_ADMIN, ROLE_FACULTY, ROLE_STUDENT, TOOL_CONTACT_LOOKUP
 from app.core.logging import get_logger
 from app.tools.base_json_tool import BaseJsonTool
 
@@ -15,7 +15,7 @@ class ContactLookupTool(BaseJsonTool):
 
     name = TOOL_CONTACT_LOOKUP
     description = "Find faculty and staff contact information."
-    allowed_roles = [ROLE_PUBLIC]
+    allowed_roles = [ROLE_STUDENT, ROLE_FACULTY, ROLE_ADMIN]
     source_file = settings.CONTACTS_DATA_FILE
     last_updated = "2026-01-10"
 

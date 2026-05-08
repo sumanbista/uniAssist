@@ -48,6 +48,8 @@ class ToolRegistry:
         tool_name: str,
         params: dict[str, Any],
         confidence: float,
+        role: str | None = None,
+        authorized: bool = True,
     ) -> tuple[dict[str, Any], ToolTrace]:
         """Execute a registered tool and return its result with trace metadata."""
 
@@ -58,8 +60,11 @@ class ToolRegistry:
                 tool_name=tool_name,
                 params=params,
                 confidence=confidence,
+                role=role,
+                authorized=False,
                 start_time=start_time,
                 message=f"Unknown tool: {tool_name}",
+                error_type="invalid_tool",
             )
 
         try:
@@ -70,8 +75,11 @@ class ToolRegistry:
                 tool_name=tool_name,
                 params=params,
                 confidence=confidence,
+                role=role,
+                authorized=authorized,
                 start_time=start_time,
                 message="Tool execution failed",
+                error_type="tool_execution_failed",
             )
 
         trace = ToolTrace(
@@ -82,6 +90,9 @@ class ToolRegistry:
             status=str(result.get("status", "error")),
             source=result.get("source"),
             message=result.get("message"),
+            role=role,
+            authorized=authorized and result.get("status") == "success",
+            error_type=None if result.get("status") == "success" else "tool_error",
         )
         return result, trace
 
@@ -90,13 +101,16 @@ class ToolRegistry:
         tool_name: str,
         params: dict[str, Any],
         confidence: float,
+        role: str | None,
+        authorized: bool,
         start_time: float,
         message: str,
+        error_type: str,
     ) -> tuple[dict[str, Any], ToolTrace]:
         """Create a safe error result and matching trace."""
 
         return (
-            {"status": "error", "message": message},
+            {"status": "error", "message": message, "error_type": error_type},
             ToolTrace(
                 tool_name=tool_name,
                 confidence=confidence,
@@ -104,6 +118,9 @@ class ToolRegistry:
                 execution_time_ms=self._elapsed_ms(start_time),
                 status="error",
                 message=message,
+                role=role,
+                authorized=authorized,
+                error_type=error_type,
             ),
         )
 
