@@ -5,6 +5,8 @@ export type ToolTrace = {
   execution_time_ms: number;
   status: string;
   source: string | null;
+  last_updated?: string | null;
+  request_id?: string | null;
   message: string | null;
   role: UserRole | string | null;
   authorized: boolean;
@@ -22,6 +24,11 @@ export type QueryResponse = {
   trace: ToolTrace;
 };
 
+export type QueryData = {
+  results?: unknown[];
+  count?: number;
+};
+
 export type AnalyticsSummary = {
   total_queries: number;
   average_latency_ms: number;
@@ -32,6 +39,7 @@ export type AnalyticsSummary = {
 
 export type RecentQueryLog = {
   id: number;
+  request_id: string;
   query: string;
   tool_used: string | null;
   role: string | null;

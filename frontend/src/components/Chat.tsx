@@ -80,6 +80,8 @@ export function Chat() {
             execution_time_ms: 0,
             status: "error",
             source: null,
+            last_updated: null,
+            request_id: null,
             message: "Network request to the backend failed.",
             role,
             authorized: false,
@@ -120,7 +122,13 @@ export function Chat() {
           {isLoading ? (
             <article className="flex justify-start">
               <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 shadow-sm">
-                Thinking...
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-teal-700" />
+                  <span>Routing query and checking tools...</span>
+                </div>
+                <div className="mt-3 h-2 w-40 overflow-hidden rounded-full bg-zinc-100">
+                  <div className="h-full w-2/3 animate-pulse rounded-full bg-teal-200" />
+                </div>
               </div>
             </article>
           ) : null}

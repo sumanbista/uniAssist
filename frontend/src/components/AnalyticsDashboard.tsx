@@ -176,6 +176,7 @@ function RecentQueriesTable({ rows }: { rows: RecentQueryLog[] }) {
           <thead className="bg-zinc-50 text-left text-zinc-500">
             <tr>
               <th className="px-4 py-3 font-medium">Query</th>
+              <th className="px-4 py-3 font-medium">Request</th>
               <th className="px-4 py-3 font-medium">Tool</th>
               <th className="px-4 py-3 font-medium">Role</th>
               <th className="px-4 py-3 font-medium">Confidence</th>
@@ -188,6 +189,9 @@ function RecentQueriesTable({ rows }: { rows: RecentQueryLog[] }) {
               rows.map((row) => (
                 <tr key={row.id}>
                   <td className="max-w-xs px-4 py-3 text-zinc-900">{row.query}</td>
+                  <td className="max-w-[9rem] truncate px-4 py-3 font-mono text-xs text-zinc-500">
+                    {row.request_id || "none"}
+                  </td>
                   <td className="px-4 py-3 text-zinc-700">{row.tool_used ?? "none"}</td>
                   <td className="px-4 py-3 text-zinc-700">{row.role ?? "none"}</td>
                   <td className="px-4 py-3 text-zinc-700">
@@ -203,7 +207,7 @@ function RecentQueriesTable({ rows }: { rows: RecentQueryLog[] }) {
               ))
             ) : (
               <tr>
-                <td className="px-4 py-6 text-center text-zinc-500" colSpan={6}>
+                <td className="px-4 py-6 text-center text-zinc-500" colSpan={7}>
                   No query logs yet.
                 </td>
               </tr>

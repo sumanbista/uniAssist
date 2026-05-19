@@ -5,7 +5,8 @@
     "time": "11:00 AM",
     "location": "University Center Ballroom",
     "category": "career",
-    "description": "Meet employers hiring interns and full-time graduates."
+    "description": "Meet employers hiring interns and full-time graduates.",
+    "last_updated": "2026-05-03"
   },
   {
     "title": "Undergraduate Research Showcase",
@@ -13,7 +14,8 @@
     "time": "2:00 PM",
     "location": "Library Atrium",
     "category": "academic",
-    "description": "Student research poster sessions across all colleges."
+    "description": "Student research poster sessions across all colleges.",
+    "last_updated": "2026-05-03"
   },
   {
     "title": "Registration Help Lab",
@@ -21,7 +23,8 @@
     "time": "10:00 AM",
     "location": "Student Services Center 101",
     "category": "registration",
-    "description": "Drop-in assistance for course planning and registration holds."
+    "description": "Drop-in assistance for course planning and registration holds.",
+    "last_updated": "2026-05-04"
   },
   {
     "title": "Campus Wellness Night",
@@ -29,6 +32,7 @@
     "time": "6:00 PM",
     "location": "Recreation Center",
     "category": "wellness",
-    "description": "Workshops, fitness classes, and counseling resources."
+    "description": "Workshops, fitness classes, and counseling resources.",
+    "last_updated": "2026-05-04"
   }
 ]

@@ -69,6 +69,20 @@ export function ToolTrace({ trace }: ToolTraceProps) {
               <dt className="font-medium text-zinc-500">Source</dt>
               <dd className="mt-1 text-zinc-900">{trace.source ?? "none"}</dd>
             </div>
+            {trace.last_updated ? (
+              <div>
+                <dt className="font-medium text-zinc-500">Last updated</dt>
+                <dd className="mt-1 text-zinc-900">{trace.last_updated}</dd>
+              </div>
+            ) : null}
+            {trace.request_id ? (
+              <div className="sm:col-span-2">
+                <dt className="font-medium text-zinc-500">Request ID</dt>
+                <dd className="mt-1 break-all font-mono text-zinc-900">
+                  {trace.request_id}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="font-medium text-zinc-500">Tool</dt>
               <dd className="mt-1 text-zinc-900">{formatToolName(trace.tool_name)}</dd>
