@@ -78,6 +78,17 @@ class FormVerificationResponse(BaseModel):
     status: str
 
 
+class RelatedEntitySummary(BaseModel):
+    """One-hop related entity summary for Forms responses."""
+
+    entity_type: str
+    entity_id: UUID
+    relationship_type: str
+    confidence_score: float | None = None
+    provenance_type: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class FormResponse(BaseModel):
     """Canonical form response."""
 
@@ -101,6 +112,7 @@ class FormResponse(BaseModel):
     staleness_score: float | None = None
     status: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+    related_entities: list[RelatedEntitySummary] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

@@ -9,6 +9,7 @@ from app.domains.forms.schemas.form import (
     FormSearchResult,
     FormVerifyRequest,
     FormVerificationResponse,
+    RelatedEntitySummary,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "FormSearchResult",
     "FormVerifyRequest",
     "FormVerificationResponse",
+    "RelatedEntitySummary",
 ]

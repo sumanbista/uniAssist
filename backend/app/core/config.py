@@ -26,5 +26,10 @@ class Settings(BaseSettings):
     DEADLINES_DATA_FILE: str = "deadlines.json"
     FAQ_DATA_FILE: str = "faq.json"
 
+    SUPABASE_JWT_SECRET: str | None = None
+    SUPABASE_JWT_ISSUER: str | None = None
+    SUPABASE_JWT_AUDIENCE: str = "authenticated"
+    AUTH_HEADER_SCHEME: str = "Bearer"
+
 
 settings = Settings()
