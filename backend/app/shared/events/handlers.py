@@ -2,10 +2,10 @@
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
 
-EventPayload = dict[str, Any]
-EventHandler = Callable[[EventPayload], Awaitable[None] | None]
+from app.shared.events.schemas import PlatformEvent
+
+EventHandler = Callable[[PlatformEvent], Awaitable[None] | None]
 
 
 @dataclass(frozen=True)

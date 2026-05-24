@@ -22,6 +22,7 @@ from app.domains.relationships.services import (
 )
 from app.shared.auth import require_any_role, scoped_university_id
 from app.shared.database.session import get_db_session
+from app.shared.events import EventBus, EventContext, EventStore
 
 router = APIRouter(prefix="/relationships", tags=["relationships"])
 AdminUser = Annotated[
@@ -36,7 +37,10 @@ def get_relationships_service(
 ) -> RelationshipsService:
     """Build a Relationships service for a request."""
 
-    return RelationshipsService(RelationshipsRepository(session))
+    return RelationshipsService(
+        RelationshipsRepository(session),
+        event_bus=EventBus(EventStore(session)),
+    )
 
 
 @router.post(
@@ -49,6 +53,7 @@ async def create_relationship(
     university_id: Annotated[UUID, Header(alias="X-University-ID")],
     current_user: AdminUser,
     service: Annotated[RelationshipsService, Depends(get_relationships_service)],
+    correlation_id: Annotated[UUID | None, Header(alias="X-Correlation-ID")] = None,
 ) -> RelationshipResponse:
     """Create a canonical relationship."""
 
@@ -59,7 +64,14 @@ async def create_relationship(
         scoped_university,
     )
     try:
-        relationship = await service.attach_relationship(relationship_data)
+        relationship = await service.attach_relationship(
+            relationship_data,
+            university_id=scoped_university,
+            event_context=EventContext(
+                actor_id=current_user.user_id,
+                correlation_id=correlation_id,
+            ),
+        )
     except DuplicateRelationshipError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return _relationship_to_response(relationship)

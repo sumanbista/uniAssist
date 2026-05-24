@@ -14,6 +14,7 @@ from app.domains.forms.models import Form, FormRelationship
 from app.domains.relationships.models import EntityRelationship
 from app.shared.database.base import Base
 from app.shared.database.config import get_database_settings
+from app.shared.events.models import EventStoreRecord
 
 config = context.config
 
@@ -21,7 +22,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-_registered_models = (Form, FormRelationship, EntityRelationship)
+_registered_models = (Form, FormRelationship, EntityRelationship, EventStoreRecord)
 
 
 def get_database_url() -> str:

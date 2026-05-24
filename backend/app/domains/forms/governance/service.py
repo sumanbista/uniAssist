@@ -6,6 +6,7 @@ from uuid import UUID
 from app.domains.forms.governance.enums import LifecycleStatus, VerificationStatus
 from app.domains.forms.models import Form
 from app.domains.forms.repositories import FormsRepository
+from app.shared.events import EventBus, EventContext
 
 INVALID_TRANSITIONS: dict[LifecycleStatus, set[LifecycleStatus]] = {
     LifecycleStatus.ARCHIVED: {
@@ -31,8 +32,13 @@ class InvalidLifecycleTransitionError(ValueError):
 class FormsGovernanceService:
     """Apply deterministic governance rules to canonical forms."""
 
-    def __init__(self, repository: FormsRepository) -> None:
+    def __init__(
+        self,
+        repository: FormsRepository,
+        event_bus: EventBus | None = None,
+    ) -> None:
         self.repository = repository
+        self.event_bus = event_bus
 
     async def verify_form(
         self,
@@ -43,6 +49,7 @@ class FormsGovernanceService:
         review_notes: str | None = None,
         expires_at: datetime | None = None,
         next_review_at: datetime | None = None,
+        event_context: EventContext | None = None,
     ) -> Form | None:
         """Mark a form as verified after transition validation."""
 
@@ -68,13 +75,27 @@ class FormsGovernanceService:
         form.next_review_at = next_review_at
         form.review_count = form.review_count + 1
         form.staleness_score = 0.0
-        return await self.repository.save_form(form)
+        saved_form = await self.repository.save_form(form)
+        await self._emit_form_event(
+            event_type="forms.verified",
+            form=saved_form,
+            event_context=event_context,
+            payload={
+                "verification_status": saved_form.verification_status,
+                "verification_score": float(saved_form.verification_score)
+                if saved_form.verification_score is not None
+                else None,
+                "review_count": saved_form.review_count,
+            },
+        )
+        return saved_form
 
     async def publish_form(
         self,
         university_id: UUID,
         form_id: UUID,
         review_notes: str | None = None,
+        event_context: EventContext | None = None,
     ) -> Form | None:
         """Publish a verified form for retrieval."""
 
@@ -93,13 +114,24 @@ class FormsGovernanceService:
         form.verification_status = VerificationStatus.VERIFIED.value
         if review_notes is not None:
             form.review_notes = review_notes
-        return await self.repository.save_form(form)
+        saved_form = await self.repository.save_form(form)
+        await self._emit_form_event(
+            event_type="forms.published",
+            form=saved_form,
+            event_context=event_context,
+            payload={
+                "status": saved_form.status,
+                "verification_status": saved_form.verification_status,
+            },
+        )
+        return saved_form
 
     async def archive_form(
         self,
         university_id: UUID,
         form_id: UUID,
         review_notes: str | None = None,
+        event_context: EventContext | None = None,
     ) -> Form | None:
         """Archive a form and remove it from active retrieval."""
 
@@ -117,7 +149,18 @@ class FormsGovernanceService:
         form.is_active = False
         if review_notes is not None:
             form.review_notes = review_notes
-        return await self.repository.save_form(form)
+        saved_form = await self.repository.save_form(form)
+        await self._emit_form_event(
+            event_type="forms.archived",
+            form=saved_form,
+            event_context=event_context,
+            payload={
+                "status": saved_form.status,
+                "verification_status": saved_form.verification_status,
+                "is_active": saved_form.is_active,
+            },
+        )
+        return saved_form
 
     async def mark_stale_forms(
         self,
@@ -189,6 +232,28 @@ class FormsGovernanceService:
             raise InvalidLifecycleTransitionError(
                 f"Invalid lifecycle transition: {current.value} -> {target_status.value}"
             )
+
+    async def _emit_form_event(
+        self,
+        event_type: str,
+        form: Form,
+        payload: dict[str, object],
+        event_context: EventContext | None = None,
+    ) -> None:
+        """Emit an audit-ready form governance event when a bus is configured."""
+
+        if self.event_bus is None:
+            return
+        await self.event_bus.emit_event(
+            event_type=event_type,
+            aggregate_type="form",
+            aggregate_id=form.id,
+            university_id=form.university_id,
+            actor_id=event_context.actor_id if event_context else None,
+            correlation_id=event_context.correlation_id if event_context else None,
+            payload=payload,
+            metadata={"source": "forms_governance_service"},
+        )
 
 
 def _as_aware(value: datetime | None) -> datetime | None:

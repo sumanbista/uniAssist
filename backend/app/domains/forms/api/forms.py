@@ -34,6 +34,7 @@ from app.domains.auth.services import GOVERNANCE_ADMIN_ROLES
 from app.shared.auth import require_any_role, scoped_university_id
 from app.core.logging import get_logger
 from app.shared.database.session import get_db_session
+from app.shared.events import EventBus, EventContext, EventStore
 
 router = APIRouter(prefix="/forms", tags=["forms"])
 AdminUser = Annotated[
@@ -64,7 +65,10 @@ def get_forms_governance_service(
 ) -> FormsGovernanceService:
     """Build a Forms governance service for a request."""
 
-    return FormsGovernanceService(FormsRepository(session))
+    return FormsGovernanceService(
+        FormsRepository(session),
+        event_bus=EventBus(EventStore(session)),
+    )
 
 
 def get_relationships_service(
@@ -120,6 +124,7 @@ async def verify_form(
         FormsGovernanceService,
         Depends(get_forms_governance_service),
     ],
+    correlation_id: Annotated[UUID | None, Header(alias="X-Correlation-ID")] = None,
 ) -> FormVerificationResponse:
     """Verify a tenant-scoped form."""
 
@@ -139,6 +144,10 @@ async def verify_form(
             review_notes=request.review_notes,
             expires_at=request.expires_at,
             next_review_at=request.next_review_at,
+            event_context=EventContext(
+                actor_id=current_user.user_id,
+                correlation_id=correlation_id,
+            ),
         )
     except InvalidLifecycleTransitionError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -157,6 +166,7 @@ async def publish_form(
         FormsGovernanceService,
         Depends(get_forms_governance_service),
     ],
+    correlation_id: Annotated[UUID | None, Header(alias="X-Correlation-ID")] = None,
 ) -> FormVerificationResponse:
     """Publish a verified tenant-scoped form."""
 
@@ -172,6 +182,10 @@ async def publish_form(
             university_id=scoped_university,
             form_id=form_id,
             review_notes=request.review_notes,
+            event_context=EventContext(
+                actor_id=current_user.user_id,
+                correlation_id=correlation_id,
+            ),
         )
     except InvalidLifecycleTransitionError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -190,6 +204,7 @@ async def archive_form(
         FormsGovernanceService,
         Depends(get_forms_governance_service),
     ],
+    correlation_id: Annotated[UUID | None, Header(alias="X-Correlation-ID")] = None,
 ) -> FormVerificationResponse:
     """Archive a tenant-scoped form."""
 
@@ -205,6 +220,10 @@ async def archive_form(
             university_id=scoped_university,
             form_id=form_id,
             review_notes=request.review_notes,
+            event_context=EventContext(
+                actor_id=current_user.user_id,
+                correlation_id=correlation_id,
+            ),
         )
     except InvalidLifecycleTransitionError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
