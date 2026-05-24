@@ -145,6 +145,7 @@ class FormSearchResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     ranking_score: float
     ranking_signals: dict[str, float] = Field(default_factory=dict)
+    similarity_score: float | None = None
 
 
 class FormSearchResponse(BaseModel):

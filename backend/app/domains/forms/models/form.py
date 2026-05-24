@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.database.base import Base
+from app.shared.database.vector import Vector
 
 
 class Form(Base):
@@ -45,6 +46,12 @@ class Form(Base):
             "searchable_vector",
             postgresql_using="gin",
         ),
+        Index(
+            "idx_forms_embedding",
+            "embedding",
+            postgresql_using="ivfflat",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -69,6 +76,8 @@ class Form(Base):
             persisted=True,
         ),
     )
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
+    embedding_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verification_status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

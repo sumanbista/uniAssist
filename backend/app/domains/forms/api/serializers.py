@@ -68,6 +68,7 @@ def retrieved_form_to_response(form: RetrievedForm) -> FormSearchResult:
         metadata=form.metadata,
         ranking_score=form.ranking_score,
         ranking_signals=form.ranking_signals,
+        similarity_score=form.similarity_score,
     )
 
 

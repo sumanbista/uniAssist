@@ -3,11 +3,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, bindparam, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.domains.forms.models import Form
 from app.domains.forms.schemas import FormCreate
+from app.shared.database.vector import Vector
 
 
 class FormsRepository:
@@ -139,6 +141,77 @@ class FormsRepository:
         )
         return list(rows.scalars().all())
 
+    async def semantic_search_forms(
+        self,
+        embedding: list[float],
+        university_id: UUID,
+        limit: int,
+    ) -> list[tuple[Form, float]]:
+        """Search tenant-scoped forms by pgvector cosine similarity."""
+
+        bounded_limit = min(max(limit, 1), 100)
+        embedding_literal = _embedding_to_pgvector_literal(embedding)
+        query_embedding = cast(
+            bindparam("query_embedding"),
+            Vector(settings.EMBEDDING_DIMENSIONS),
+        )
+        similarity_score = (1 - Form.embedding.op("<=>")(query_embedding)).label(
+            "similarity_score"
+        )
+        rows = await self.session.execute(
+            self._tenant_scoped_query(university_id)
+            .add_columns(similarity_score)
+            .where(Form.embedding.is_not(None))
+            .where(Form.status.notin_(self.EXCLUDED_RETRIEVAL_STATUSES))
+            .where(Form.verification_status.notin_(("rejected", "archived")))
+            .order_by(
+                Form.embedding.op("<=>")(query_embedding).asc(),
+                Form.title.asc(),
+                Form.id.asc(),
+            )
+            .limit(bounded_limit),
+            {"query_embedding": embedding_literal},
+        )
+        return [(row[0], float(row[1])) for row in rows.all()]
+
+    async def update_form_embedding(
+        self,
+        university_id: UUID,
+        form_id: UUID,
+        embedding: list[float],
+        embedding_updated_at: datetime,
+    ) -> Form | None:
+        """Persist a tenant-scoped form embedding."""
+
+        embedding_literal = _embedding_to_pgvector_literal(embedding)
+        result = await self.session.execute(
+            text(
+                """
+                UPDATE forms
+                SET embedding = CAST(:embedding AS vector),
+                    embedding_updated_at = :embedding_updated_at
+                WHERE university_id = :university_id
+                  AND id = :form_id
+                RETURNING id
+                """
+            ),
+            {
+                "embedding": embedding_literal,
+                "embedding_updated_at": embedding_updated_at,
+                "university_id": university_id,
+                "form_id": form_id,
+            },
+        )
+        if result.scalar_one_or_none() is None:
+            await self.session.rollback()
+            return None
+        await self.session.commit()
+        return await self.get_form_by_id(
+            university_id=university_id,
+            form_id=form_id,
+            include_inactive=True,
+        )
+
     async def save_form(self, form: Form, commit: bool = True) -> Form:
         """Persist pending form changes."""
 
@@ -184,3 +257,20 @@ class FormsRepository:
             Form.university_id == university_id,
             Form.is_active.is_(True),
         )
+
+
+def _embedding_to_pgvector_literal(embedding: list[float]) -> str:
+    """Validate and serialize an embedding for parameterized pgvector queries."""
+
+    if len(embedding) != settings.EMBEDDING_DIMENSIONS:
+        raise ValueError("Embedding dimension mismatch")
+    return "[" + ",".join(_format_embedding_value(value) for value in embedding) + "]"
+
+
+def _format_embedding_value(value: float) -> str:
+    """Return a safe finite float literal for pgvector."""
+
+    numeric_value = float(value)
+    if numeric_value != numeric_value or numeric_value in (float("inf"), float("-inf")):
+        raise ValueError("Embedding values must be finite")
+    return f"{numeric_value:.8f}"

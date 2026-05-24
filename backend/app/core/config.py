@@ -31,5 +31,10 @@ class Settings(BaseSettings):
     SUPABASE_JWT_AUDIENCE: str = "authenticated"
     AUTH_HEADER_SCHEME: str = "Bearer"
 
+    EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
+    EMBEDDING_DIMENSIONS: int = 384
+    FORMS_FTS_WEIGHT: float = 0.55
+    FORMS_SEMANTIC_WEIGHT: float = 0.45
+
 
 settings = Settings()

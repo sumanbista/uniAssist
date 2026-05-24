@@ -114,6 +114,30 @@ async def search_forms(
     )
 
 
+@router.get("/search/semantic", response_model=FormSearchResponse)
+async def semantic_search_forms(
+    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    service: Annotated[
+        FormsRetrievalService,
+        Depends(get_forms_retrieval_service),
+    ],
+    q: Annotated[str, Query(min_length=1, max_length=255)],
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> FormSearchResponse:
+    """Search forms with local embeddings and pgvector cosine similarity."""
+
+    forms = await service.retrieve_semantic_forms(
+        query=q,
+        university_id=university_id,
+        limit=limit,
+    )
+    return FormSearchResponse(
+        forms=[retrieved_form_to_response(form) for form in forms],
+        query=q,
+        limit=limit,
+    )
+
+
 @router.post("/{form_id}/verify", response_model=FormVerificationResponse)
 async def verify_form(
     form_id: UUID,
