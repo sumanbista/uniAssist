@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSIONS: int = 384
     FORMS_FTS_WEIGHT: float = 0.55
     FORMS_SEMANTIC_WEIGHT: float = 0.45
+    ORCHESTRATION_ALLOWED_TOOLS: list[str] = [
+        "forms_search",
+        "semantic_forms_search",
+        "relationship_lookup",
+    ]
+    ORCHESTRATION_MAX_STEPS: int = 3
+    ORCHESTRATION_TOOL_TIMEOUT_SECONDS: float = 5.0
+    ORCHESTRATION_RESULT_LIMIT: int = 5
+    ORCHESTRATION_RELATIONSHIP_LOOKUP_LIMIT: int = 5
 
 
 settings = Settings()

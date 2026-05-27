@@ -1,13 +1,17 @@
 # Orchestration Domain
 
-Placeholder for constrained agent orchestration.
+Foundational constrained retrieval orchestration for UniAssist.
 
-Future responsibilities:
-- Retrieval planning
-- Multi-tool planning
-- Workflow traversal planning
-- Execution budgets
-- Reasoning traces
+Current responsibilities:
+- Deterministic retrieval planning
+- Explicit tool registration
+- Bounded tool execution
+- Replay-safe orchestration traces
+- Structured latency and confidence metadata
 
-TODO:
-- Move planning concerns here from retrieval after tool interfaces stabilize.
+Current constraints:
+- No autonomous agents
+- No recursive orchestration
+- No graph traversal
+- No external browsing
+- No analytics consumers

@@ -17,6 +17,7 @@ from app.shared.observability.models import QueryLogRecord
 from app.domains.retrieval.schemas.query import QueryRequest, QueryResponse
 from app.domains.auth.models.roles import UserRole
 from app.domains.forms.api import router as forms_router
+from app.domains.orchestration.api import router as orchestration_router
 from app.domains.relationships.api import router as relationships_router
 from app.domains.retrieval.schemas.tool import ToolMetadata, ToolRequest
 from app.domains.retrieval.router.fallback_handler import fallback_response
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 app.include_router(forms_router)
 app.include_router(relationships_router)
+app.include_router(orchestration_router)
 tool_registry = build_tool_registry()
 intent_classifier = IntentClassifier()
 routing_logic = RoutingLogic(tool_registry)
