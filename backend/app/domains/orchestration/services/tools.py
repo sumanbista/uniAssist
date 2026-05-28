@@ -15,6 +15,10 @@ from app.domains.orchestration.schemas import (
 )
 from app.domains.orchestration.services.tool_registry import OrchestrationTool
 from app.domains.relationships.services import RelationshipsService
+from app.domains.relationships.traversal import (
+    RelationshipTraversalService,
+    TraversalRequest,
+)
 
 
 class FormsSearchTool(OrchestrationTool):
@@ -96,8 +100,13 @@ class RelationshipLookupTool(OrchestrationTool):
 
     name = OrchestrationToolName.RELATIONSHIP_LOOKUP
 
-    def __init__(self, service: RelationshipsService) -> None:
+    def __init__(
+        self,
+        service: RelationshipsService,
+        traversal_service: RelationshipTraversalService | None = None,
+    ) -> None:
         self.service = service
+        self.traversal_service = traversal_service
 
     async def run(
         self,
@@ -109,6 +118,13 @@ class RelationshipLookupTool(OrchestrationTool):
 
         started_at = time.perf_counter()
         form_ids = _prior_form_ids(prior_results)
+        if self.traversal_service is not None:
+            return await self._run_traversal_lookup(
+                step=step,
+                university_id=university_id,
+                form_ids=form_ids,
+                started_at=started_at,
+            )
         relationship_rows: list[dict[str, Any]] = []
         for form_id in form_ids[: settings.ORCHESTRATION_RELATIONSHIP_LOOKUP_LIMIT]:
             relationships = await self.service.retrieve_related_entities(
@@ -139,6 +155,46 @@ class RelationshipLookupTool(OrchestrationTool):
                 "result_count": len(relationship_rows),
                 "retrieval_type": "relationship_lookup",
                 "looked_up_entities": len(form_ids),
+            },
+        )
+
+    async def _run_traversal_lookup(
+        self,
+        step: ExecutionStep,
+        university_id: UUID,
+        form_ids: list[UUID],
+        started_at: float,
+    ) -> ToolExecutionResult:
+        """Execute bounded traversal expansion for prior form results."""
+
+        traversal_rows: list[dict[str, Any]] = []
+        traversal_traces: list[dict[str, Any]] = []
+        for form_id in form_ids[: settings.ORCHESTRATION_RELATIONSHIP_LOOKUP_LIMIT]:
+            result = await self.traversal_service.traverse_related_entities(
+                request=TraversalRequest(
+                    entity_id=form_id,
+                    entity_type="form",
+                    max_hops=settings.TRAVERSAL_MAX_HOPS,
+                    max_nodes=settings.TRAVERSAL_MAX_NODES,
+                    traversal_timeout_ms=settings.TRAVERSAL_TIMEOUT_MS,
+                ),
+                university_id=university_id,
+            )
+            traversal_rows.extend(
+                node.model_dump(mode="json")
+                for node in result.related_entities
+            )
+            traversal_traces.append(result.trace.model_dump(mode="json"))
+        return _success_result(
+            step=step,
+            started_at=started_at,
+            data=traversal_rows,
+            confidence_score=_average_traversal_score(traversal_rows),
+            metadata={
+                "result_count": len(traversal_rows),
+                "retrieval_type": "bounded_relationship_traversal",
+                "looked_up_entities": len(form_ids),
+                "traversal_traces": traversal_traces,
             },
         )
 
@@ -206,6 +262,19 @@ def _average_relationship_confidence(results: list[dict[str, Any]]) -> float:
         result.get("confidence_score", 0.0)
         for result in results
         if isinstance(result.get("confidence_score"), (int, float))
+    ]
+    if not scores:
+        return 0.0
+    return min(1.0, max(0.0, sum(scores) / len(scores)))
+
+
+def _average_traversal_score(results: list[dict[str, Any]]) -> float:
+    """Calculate confidence from traversal node scores."""
+
+    scores = [
+        result.get("traversal_score", 0.0)
+        for result in results
+        if isinstance(result.get("traversal_score"), (int, float))
     ]
     if not scores:
         return 0.0

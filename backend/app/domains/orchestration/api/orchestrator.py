@@ -22,6 +22,7 @@ from app.domains.orchestration.services import (
 )
 from app.domains.relationships.repositories import RelationshipsRepository
 from app.domains.relationships.services import RelationshipsService
+from app.domains.relationships.traversal import RelationshipTraversalService
 from app.shared.database.session import get_db_session
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestration"])
@@ -34,10 +35,19 @@ def get_retrieval_orchestrator(
 
     forms_service = FormsRetrievalService(FormsRepository(session))
     relationships_service = RelationshipsService(RelationshipsRepository(session))
+    traversal_service = RelationshipTraversalService(
+        relationships_service=relationships_service,
+        forms_repository=FormsRepository(session),
+    )
     registry = ToolRegistry()
     registry.register(FormsSearchTool(forms_service))
     registry.register(SemanticFormsSearchTool(forms_service))
-    registry.register(RelationshipLookupTool(relationships_service))
+    registry.register(
+        RelationshipLookupTool(
+            service=relationships_service,
+            traversal_service=traversal_service,
+        )
+    )
     return RetrievalOrchestrator(
         planner=RetrievalPlanner(),
         tool_registry=registry,

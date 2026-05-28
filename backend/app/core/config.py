@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     ORCHESTRATION_TOOL_TIMEOUT_SECONDS: float = 5.0
     ORCHESTRATION_RESULT_LIMIT: int = 5
     ORCHESTRATION_RELATIONSHIP_LOOKUP_LIMIT: int = 5
+    TRAVERSAL_MAX_HOPS: int = 2
+    TRAVERSAL_MAX_NODES: int = 25
+    TRAVERSAL_TIMEOUT_MS: int = 500
+    TRAVERSAL_ALLOWED_RELATIONSHIP_TYPES: list[str] = [
+        "requires",
+        "deadline_for",
+        "related_to",
+        "references",
+    ]
 
 
 settings = Settings()

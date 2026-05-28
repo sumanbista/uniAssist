@@ -20,6 +20,12 @@ from app.domains.relationships.services import (
     DuplicateRelationshipError,
     RelationshipsService,
 )
+from app.domains.relationships.traversal import (
+    RelationshipTraversalService,
+    TraversalRequest,
+    TraversalResult,
+)
+from app.domains.forms.repositories import FormsRepository
 from app.shared.auth import require_any_role, scoped_university_id
 from app.shared.database.session import get_db_session
 from app.shared.events import EventBus, EventContext, EventStore
@@ -40,6 +46,17 @@ def get_relationships_service(
     return RelationshipsService(
         RelationshipsRepository(session),
         event_bus=EventBus(EventStore(session)),
+    )
+
+
+def get_relationship_traversal_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> RelationshipTraversalService:
+    """Build a relationship traversal service for a request."""
+
+    return RelationshipTraversalService(
+        relationships_service=RelationshipsService(RelationshipsRepository(session)),
+        forms_repository=FormsRepository(session),
     )
 
 
@@ -92,6 +109,23 @@ async def get_relationships_for_entity(
         ],
         entity_type=entity_type.strip().lower(),
         entity_id=entity_id,
+    )
+
+
+@router.post("/traverse", response_model=TraversalResult)
+async def traverse_relationships(
+    request: TraversalRequest,
+    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    service: Annotated[
+        RelationshipTraversalService,
+        Depends(get_relationship_traversal_service),
+    ],
+) -> TraversalResult:
+    """Traverse bounded relationship links for a tenant-scoped entity."""
+
+    return await service.traverse_related_entities(
+        request=request,
+        university_id=university_id,
     )
 
 
