@@ -12,6 +12,8 @@ from app.domains.forms.retrieval.ranking import rank_forms
 from app.shared.ai import EmbeddingProvider, LocalEmbeddingProvider
 
 logger = get_logger(__name__)
+EXCLUDED_RETRIEVAL_STATUSES = frozenset({"archived", "deprecated", "rejected"})
+EXCLUDED_VERIFICATION_STATUSES = frozenset({"archived", "deprecated", "rejected"})
 
 
 @dataclass(frozen=True)
@@ -62,7 +64,7 @@ class FormsRetrievalService:
             university_id=university_id,
             limit=candidate_limit,
         )
-        ranked_forms = rank_forms(query, candidates)
+        ranked_forms = rank_forms(query, _filter_retrievable_forms(candidates))
         return [
             _to_retrieved_form(
                 form=result.form,
@@ -101,6 +103,7 @@ class FormsRetrievalService:
                 similarity_score=round(similarity_score, 4),
             )
             for form, similarity_score in semantic_results
+            if _is_retrievable_form(form)
         ]
 
     async def retrieve_hybrid_forms(
@@ -163,6 +166,22 @@ def _to_retrieved_form(
         ranking_score=round(ranking_score, 4),
         ranking_signals=ranking_signals,
         similarity_score=similarity_score,
+    )
+
+
+def _filter_retrievable_forms(forms: list[Any]) -> list[Any]:
+    """Exclude forms that governance rules hide from retrieval."""
+
+    return [form for form in forms if _is_retrievable_form(form)]
+
+
+def _is_retrievable_form(form: Any) -> bool:
+    """Return whether a form can be exposed by retrieval."""
+
+    return (
+        getattr(form, "status", None) not in EXCLUDED_RETRIEVAL_STATUSES
+        and getattr(form, "verification_status", None)
+        not in EXCLUDED_VERIFICATION_STATUSES
     )
 
 

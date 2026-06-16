@@ -135,7 +135,7 @@ class FormsRepository:
             self._tenant_scoped_query(university_id)
             .where(Form.searchable_vector.op("@@")(search_query))
             .where(Form.status.notin_(self.EXCLUDED_RETRIEVAL_STATUSES))
-            .where(Form.verification_status.notin_(("rejected", "archived")))
+            .where(Form.verification_status.notin_(("rejected", "archived", "deprecated")))
             .order_by(rank.desc(), Form.title.asc(), Form.id.asc())
             .limit(limit)
         )
@@ -163,7 +163,7 @@ class FormsRepository:
             .add_columns(similarity_score)
             .where(Form.embedding.is_not(None))
             .where(Form.status.notin_(self.EXCLUDED_RETRIEVAL_STATUSES))
-            .where(Form.verification_status.notin_(("rejected", "archived")))
+            .where(Form.verification_status.notin_(("rejected", "archived", "deprecated")))
             .order_by(
                 Form.embedding.op("<=>")(query_embedding).asc(),
                 Form.title.asc(),
