@@ -2,7 +2,13 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { sendQuery, UserRole } from "@/lib/api";
+import {
+  extractFormResults,
+  searchForms,
+  sendQuery,
+  UserRole,
+} from "@/lib/api";
+import { FormResultsState } from "@/components/FormSearchResults";
 import { ChatMessage, MessageBubble } from "@/components/MessageBubble";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { SuggestedPrompts } from "@/components/SuggestedPrompts";
@@ -50,6 +56,7 @@ export function Chat() {
 
     try {
       const response = await sendQuery(trimmedQuery, role);
+      const formResults = await resolveFormResults(trimmedQuery, response);
       setMessages((currentMessages) => [
         ...currentMessages,
         {
@@ -60,6 +67,7 @@ export function Chat() {
           toolUsed: response.tool_used,
           confidence: response.confidence,
           trace: response.trace,
+          formResults,
         },
       ]);
     } catch {
@@ -170,5 +178,40 @@ export function Chat() {
         ) : null}
       </div>
     </section>
+  );
+}
+
+async function resolveFormResults(
+  query: string,
+  response: Awaited<ReturnType<typeof sendQuery>>,
+): Promise<FormResultsState | undefined> {
+  const embeddedForms = extractFormResults(response.data);
+  if (embeddedForms.length > 0) {
+    return { status: "success", forms: embeddedForms };
+  }
+
+  if (!shouldSearchForms(query, response.tool_used)) {
+    return undefined;
+  }
+
+  try {
+    const searchResponse = await searchForms(query, 5);
+    return searchResponse.forms.length > 0
+      ? { status: "success", forms: searchResponse.forms }
+      : { status: "empty", forms: [] };
+  } catch (error) {
+    if (error instanceof Error && error.message === "FORM_SEARCH_UNAUTHORIZED") {
+      return { status: "unauthorized", forms: [] };
+    }
+    return { status: "error", forms: [] };
+  }
+}
+
+function shouldSearchForms(query: string, toolUsed: string | null): boolean {
+  if (toolUsed?.includes("forms")) {
+    return true;
+  }
+  return /\b(form|forms|pdf|application|appeal|registrar|withdrawal|add\/drop|registration)\b/i.test(
+    query,
   );
 }

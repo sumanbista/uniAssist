@@ -1,3 +1,4 @@
+import { FormResultsState, FormSearchResults } from "@/components/FormSearchResults";
 import { ToolTrace as ToolTraceData } from "@/lib/api";
 import { ToolTrace } from "@/components/ToolTrace";
 
@@ -9,6 +10,7 @@ export type ChatMessage = {
   toolUsed?: string | null;
   confidence?: number;
   trace?: ToolTraceData;
+  formResults?: FormResultsState;
 };
 
 type MessageBubbleProps = {
@@ -43,6 +45,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         ) : null}
         {!isUser && message.trace ? (
           <FreshnessIndicator lastUpdated={message.trace.last_updated} />
+        ) : null}
+        {!isUser && message.formResults ? (
+          <FormSearchResults state={message.formResults} />
         ) : null}
         {!isUser && message.trace ? <ToolTrace trace={message.trace} /> : null}
       </div>

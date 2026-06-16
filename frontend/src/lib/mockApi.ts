@@ -1,4 +1,6 @@
-import { QueryResponse, UserRole } from "@/lib/api";
+import { FormSearchResponse, getFormFileUrl, QueryResponse, UserRole } from "@/lib/api";
+
+const MOCK_FORM_ID = "22222222-2222-4222-8222-222222222222";
 
 const MOCK_RESPONSES: Array<{
   keywords: string[];
@@ -175,4 +177,41 @@ export async function sendMockQuery(
         error_type: "low_confidence",
       },
     };
+}
+
+export async function searchMockForms(
+  query: string,
+  limit: number,
+): Promise<FormSearchResponse> {
+  await new Promise((resolve) => {
+    window.setTimeout(resolve, 180);
+  });
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchesFormIntent =
+    normalizedQuery.includes("form") ||
+    normalizedQuery.includes("add/drop") ||
+    normalizedQuery.includes("registration") ||
+    normalizedQuery.includes("appeal");
+
+  return {
+    forms: matchesFormIntent
+      ? [
+          {
+            form_id: MOCK_FORM_ID,
+            title: "Add/Drop Form",
+            description: "Registrar workflow form for schedule changes.",
+            category: "registrar",
+            verification_status: "verified",
+            status: "published",
+            ranking_score: 0.92,
+            source_url: "https://www.caldwell.edu/registrar/",
+            last_verified_at: "2026-05-28T12:00:00Z",
+            file_url: getFormFileUrl(MOCK_FORM_ID),
+          },
+        ].slice(0, limit)
+      : [],
+    query,
+    limit,
+  };
 }
