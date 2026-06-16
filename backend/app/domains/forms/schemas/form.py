@@ -1,6 +1,7 @@
 """API schemas for the Forms domain."""
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -154,3 +155,10 @@ class FormSearchResponse(BaseModel):
     forms: list[FormSearchResult]
     query: str
     limit: int
+
+
+class FormFileAccessResult(BaseModel):
+    """Internal result for serving a stored form PDF."""
+
+    file_path: Path
+    filename: str

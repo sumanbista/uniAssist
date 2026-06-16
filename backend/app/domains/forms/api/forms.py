@@ -4,6 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.forms.api.serializers import (
@@ -27,11 +28,16 @@ from app.domains.forms.schemas import (
     RelatedEntitySummary,
 )
 from app.domains.forms.services import FormsService
+from app.domains.forms.services import (
+    FormFileAccessDeniedError,
+    FormFileNotFoundError,
+    FormsFileAccessService,
+)
 from app.domains.relationships.repositories import RelationshipsRepository
 from app.domains.relationships.services import RelationshipsService
 from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.auth.services import GOVERNANCE_ADMIN_ROLES
-from app.shared.auth import require_any_role, scoped_university_id
+from app.shared.auth import get_current_user, require_any_role, scoped_university_id
 from app.core.logging import get_logger
 from app.shared.database.session import get_db_session
 from app.shared.events import EventBus, EventContext, EventStore
@@ -77,6 +83,14 @@ def get_relationships_service(
     """Build a Relationships service for optional Forms summaries."""
 
     return RelationshipsService(RelationshipsRepository(session))
+
+
+def get_forms_file_access_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> FormsFileAccessService:
+    """Build a Forms file access service for a request."""
+
+    return FormsFileAccessService(FormsRepository(session))
 
 
 @router.post("", response_model=FormResponse, status_code=status.HTTP_201_CREATED)
@@ -254,6 +268,40 @@ async def archive_form(
     if form is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found")
     return form_to_governance_response(form)
+
+
+@router.get("/{form_id}/file")
+async def get_form_file(
+    form_id: UUID,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    service: Annotated[
+        FormsFileAccessService,
+        Depends(get_forms_file_access_service),
+    ],
+) -> FileResponse:
+    """Open an authorized stored PDF form inline."""
+
+    try:
+        file_result = await service.get_form_file(
+            form_id=form_id,
+            current_user=current_user,
+        )
+    except FormFileAccessDeniedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Form file is not accessible",
+        ) from exc
+    except FormFileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Form file not found",
+        ) from exc
+    return FileResponse(
+        path=file_result.file_path,
+        media_type="application/pdf",
+        filename=file_result.filename,
+        content_disposition_type="inline",
+    )
 
 
 @router.get("/{form_id}", response_model=FormResponse)

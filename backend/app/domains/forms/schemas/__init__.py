@@ -3,6 +3,7 @@
 from app.domains.forms.schemas.form import (
     FormCreate,
     FormGovernanceRequest,
+    FormFileAccessResult,
     FormListResponse,
     FormResponse,
     FormSearchResponse,
@@ -15,6 +16,7 @@ from app.domains.forms.schemas.form import (
 __all__ = [
     "FormCreate",
     "FormGovernanceRequest",
+    "FormFileAccessResult",
     "FormListResponse",
     "FormResponse",
     "FormSearchResponse",
