@@ -69,6 +69,55 @@ export type RecentQueryLog = {
   created_at: string;
 };
 
+export type PdfFormUploadInput = {
+  file: File;
+  title: string;
+  description?: string;
+  category?: string;
+  department?: string;
+  source_url?: string;
+};
+
+export type PdfFormUploadResponse = {
+  form_id: string;
+  title: string;
+  status: string;
+  verification_status: string;
+  extracted_text_preview: string;
+  page_count: number;
+};
+
+export type ReviewItem = {
+  entity_type: "form";
+  entity_id: string;
+  title: string;
+  category: string | null;
+  source_url: string | null;
+  status: string;
+  verification_status: string;
+  submitted_at: string;
+  source_metadata: Record<string, unknown>;
+  file_url: string;
+};
+
+export type ReviewDecision = "approve" | "reject";
+
+export type ReviewDecisionInput = {
+  entity_type: "form";
+  entity_id: string;
+  decision: ReviewDecision;
+  review_notes?: string;
+};
+
+export type ReviewDecisionResponse = {
+  entity_type: "form";
+  entity_id: string;
+  decision: ReviewDecision;
+  status: string;
+  verification_status: string;
+  review_notes: string | null;
+};
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
@@ -127,6 +176,108 @@ export async function searchForms(
   }
 
   return validateFormSearchResponse(await response.json());
+}
+
+export async function uploadPdfForm(
+  input: PdfFormUploadInput,
+): Promise<PdfFormUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", input.file);
+  appendFormValue(formData, "title", input.title);
+  appendFormValue(formData, "description", input.description);
+  appendFormValue(formData, "category", input.category);
+  appendFormValue(formData, "department", input.department);
+  appendFormValue(formData, "source_url", input.source_url);
+
+  const response = await fetch(`${API_BASE_URL}/ingestion/forms/pdf`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("ADMIN_UNAUTHORIZED");
+  }
+  if (!response.ok) {
+    throw new Error("UPLOAD_FAILED");
+  }
+
+  return validatePdfFormUploadResponse(await response.json());
+}
+
+export async function getPendingReviews(): Promise<ReviewItem[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/governance/reviews/pending?entity_type=form`,
+    {
+      headers: {
+        "X-University-ID": UNIVERSITY_ID,
+      },
+    },
+  );
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("ADMIN_UNAUTHORIZED");
+  }
+  if (!response.ok) {
+    throw new Error("REVIEWS_UNAVAILABLE");
+  }
+
+  return validateReviewItems(await response.json());
+}
+
+export async function getReviewItem(
+  entityType: string,
+  entityId: string,
+): Promise<ReviewItem> {
+  const response = await fetch(
+    `${API_BASE_URL}/governance/reviews/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
+    {
+      headers: {
+        "X-University-ID": UNIVERSITY_ID,
+      },
+    },
+  );
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("ADMIN_UNAUTHORIZED");
+  }
+  if (response.status === 404) {
+    throw new Error("REVIEW_NOT_FOUND");
+  }
+  if (!response.ok) {
+    throw new Error("REVIEWS_UNAVAILABLE");
+  }
+
+  return validateReviewItem(await response.json());
+}
+
+export async function submitReviewDecision(
+  input: ReviewDecisionInput,
+): Promise<ReviewDecisionResponse> {
+  const response = await fetch(`${API_BASE_URL}/governance/reviews/decision`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-University-ID": UNIVERSITY_ID,
+    },
+    body: JSON.stringify({
+      entity_type: input.entity_type,
+      entity_id: input.entity_id,
+      decision: input.decision,
+      review_notes: input.review_notes,
+    }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("ADMIN_UNAUTHORIZED");
+  }
+  if (response.status === 409) {
+    throw new Error("REVIEW_CONFLICT");
+  }
+  if (!response.ok) {
+    throw new Error("REVIEW_DECISION_FAILED");
+  }
+
+  return validateReviewDecisionResponse(await response.json());
 }
 
 export function getFormFileUrl(formId: string): string {
@@ -188,6 +339,107 @@ function validateFormSearchResponse(value: unknown): FormSearchResponse {
     query: typeof value.query === "string" ? value.query : "",
     limit: typeof value.limit === "number" ? value.limit : 0,
   };
+}
+
+function validatePdfFormUploadResponse(value: unknown): PdfFormUploadResponse {
+  if (!isRecord(value)) {
+    throw new Error("UPLOAD_INVALID_RESPONSE");
+  }
+  const formId = safeString(value.form_id);
+  const title = safeString(value.title);
+  const status = safeString(value.status);
+  const verificationStatus = safeString(value.verification_status);
+  if (!formId || !isUuidLike(formId) || !title || !status || !verificationStatus) {
+    throw new Error("UPLOAD_INVALID_RESPONSE");
+  }
+  return {
+    form_id: formId,
+    title,
+    status,
+    verification_status: verificationStatus,
+    extracted_text_preview: safeString(value.extracted_text_preview) ?? "",
+    page_count: typeof value.page_count === "number" ? value.page_count : 0,
+  };
+}
+
+function validateReviewItems(value: unknown): ReviewItem[] {
+  if (!Array.isArray(value)) {
+    throw new Error("REVIEWS_INVALID_RESPONSE");
+  }
+  return value.map(validateReviewItem);
+}
+
+function validateReviewItem(value: unknown): ReviewItem {
+  if (!isRecord(value)) {
+    throw new Error("REVIEWS_INVALID_RESPONSE");
+  }
+  const entityType = safeString(value.entity_type);
+  const entityId = safeString(value.entity_id);
+  const title = safeString(value.title);
+  const status = safeString(value.status);
+  const verificationStatus = safeString(value.verification_status);
+  const submittedAt = safeString(value.submitted_at);
+  if (
+    entityType !== "form" ||
+    !entityId ||
+    !isUuidLike(entityId) ||
+    !title ||
+    !status ||
+    !verificationStatus ||
+    !submittedAt
+  ) {
+    throw new Error("REVIEWS_INVALID_RESPONSE");
+  }
+  return {
+    entity_type: "form",
+    entity_id: entityId,
+    title,
+    category: safeNullableString(value.category),
+    source_url: safeHttpUrl(value.source_url),
+    status,
+    verification_status: verificationStatus,
+    submitted_at: submittedAt,
+    source_metadata: isRecord(value.source_metadata) ? value.source_metadata : {},
+    file_url: getFormFileUrl(entityId),
+  };
+}
+
+function validateReviewDecisionResponse(
+  value: unknown,
+): ReviewDecisionResponse {
+  if (!isRecord(value)) {
+    throw new Error("REVIEW_DECISION_INVALID_RESPONSE");
+  }
+  const entityType = safeString(value.entity_type);
+  const entityId = safeString(value.entity_id);
+  const decision = safeString(value.decision);
+  const status = safeString(value.status);
+  const verificationStatus = safeString(value.verification_status);
+  if (
+    entityType !== "form" ||
+    !entityId ||
+    !isUuidLike(entityId) ||
+    (decision !== "approve" && decision !== "reject") ||
+    !status ||
+    !verificationStatus
+  ) {
+    throw new Error("REVIEW_DECISION_INVALID_RESPONSE");
+  }
+  return {
+    entity_type: "form",
+    entity_id: entityId,
+    decision,
+    status,
+    verification_status: verificationStatus,
+    review_notes: safeNullableString(value.review_notes),
+  };
+}
+
+function appendFormValue(formData: FormData, key: string, value?: string) {
+  const normalizedValue = value?.trim();
+  if (normalizedValue) {
+    formData.append(key, normalizedValue);
+  }
 }
 
 function normalizeFormResult(value: unknown): FormResult | null {
