@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.domains.forms.models import Form, FormRelationship
+from app.domains.ingestion.models import AcademicCalendarEntry, RawPage
 from app.domains.relationships.models import EntityRelationship
 from app.shared.database.base import Base
 from app.shared.database.config import get_database_settings
@@ -22,7 +23,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-_registered_models = (Form, FormRelationship, EntityRelationship, EventStoreRecord)
+_registered_models = (
+    Form,
+    FormRelationship,
+    EntityRelationship,
+    EventStoreRecord,
+    AcademicCalendarEntry,
+    RawPage,
+)
 
 
 def get_database_url() -> str:

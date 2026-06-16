@@ -1,6 +1,7 @@
 """Application settings loaded from environment variables."""
 
 from pathlib import Path
+from uuid import UUID
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     EVENTS_DATA_FILE: str = "events.json"
     DEADLINES_DATA_FILE: str = "deadlines.json"
     FAQ_DATA_FILE: str = "faq.json"
+
+    CALDWELL_UNIVERSITY_ID: UUID = UUID("11111111-1111-4111-8111-111111111111")
+    CALDWELL_FORMS_SOURCE_URL: str = "https://www.caldwell.edu/registrar/"
+    CALDWELL_CALENDAR_SOURCE_URL: str = (
+        "https://my.caldwell.edu/ICS/Calendar.jnz?portlet=Downloadable_Calendars"
+    )
 
     SUPABASE_JWT_SECRET: str | None = None
     SUPABASE_JWT_ISSUER: str | None = None

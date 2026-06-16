@@ -1,13 +1,22 @@
 # Ingestion Domain
 
-Placeholder for data ingestion and synchronization.
+Foundational Caldwell University ingestion for allowlisted forms and academic
+calendar sources.
 
-Future responsibilities:
-- Source registry
-- Adapter orchestration
-- Raw content ingestion
-- Normalization pipelines
-- Retry workflows
+Implemented scope:
+- explicit Caldwell source registry
+- async HTML fetch and validation
+- deterministic parsing and text sanitization
+- canonical form and academic calendar extraction models
+- pending-review canonical persistence
+- retry-safe source-hash dedupe
+- internal event emission
+- admin-triggered API runs
 
-TODO:
-- Implement only after canonical entity schemas are defined.
+Intentionally out of scope:
+- scheduled jobs
+- autonomous crawling
+- PDF extraction
+- AI extraction
+- embeddings generation
+- analytics consumers
