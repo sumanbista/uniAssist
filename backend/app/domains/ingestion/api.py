@@ -11,11 +11,13 @@ from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.auth.services import GOVERNANCE_ADMIN_ROLES
 from app.domains.ingestion.schemas import IngestionRunResponse
 from app.domains.ingestion.service import CaldwellIngestionService
+from app.domains.ingestion.pdf_forms import router as pdf_forms_router
 from app.shared.auth import require_any_role
 from app.shared.database.session import get_db_session
 from app.shared.events import EventContext
 
 router = APIRouter(prefix="/ingestion", tags=["ingestion"])
+router.include_router(pdf_forms_router)
 logger = get_logger(__name__)
 AdminUser = Annotated[
     AuthenticatedUser,
@@ -71,4 +73,3 @@ async def run_calendar_ingestion(
             correlation_id=correlation_id,
         )
     )
-

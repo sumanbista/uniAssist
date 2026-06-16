@@ -112,6 +112,7 @@ class Form(Base):
         nullable=False,
         server_default=func.now(),
     )
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -172,4 +173,15 @@ class FormRelationship(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    source_form: Mapped[Form] = relationship(
+        "Form",
+        back_populates="outgoing_relationships",
+        foreign_keys=[source_form_id],
+    )
+    target_form: Mapped[Form] = relationship(
+        "Form",
+        back_populates="incoming_relationships",
+        foreign_keys=[target_form_id],
     )

@@ -8,3 +8,5 @@ alembic
 asyncpg
 PyJWT
 sentence-transformers
+pdfplumber
+python-multipart

@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     BASE_DIR: Path = Path(__file__).resolve().parents[1]
     DATA_PATH: Path = BASE_DIR / "data"
     LOG_DB_PATH: Path = DATA_PATH / "query_logs.sqlite3"
+    PDF_FORM_STORAGE_ROOT: Path = DATA_PATH / "uploaded_forms"
+    PDF_FORM_MAX_FILE_SIZE_BYTES: int = 10 * 1024 * 1024
+    PDF_FORM_TEXT_PREVIEW_CHARS: int = 1000
 
     CONTACTS_DATA_FILE: str = "contacts.json"
     CALENDAR_DATA_FILE: str = "calendar.json"
