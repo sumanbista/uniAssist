@@ -26,7 +26,6 @@ def form_to_response(
         description=form.description,
         category=form.category,
         source_url=form.source_url,
-        storage_path=form.storage_path,
         verification_status=form.verification_status,
         verification_score=float(form.verification_score)
         if form.verification_score is not None

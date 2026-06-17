@@ -2,12 +2,11 @@
 
 import { FormEvent, useState } from "react";
 
-import { PdfFormUploadResponse, uploadPdfForm, UserRole } from "@/lib/api";
+import { PdfFormUploadResponse, uploadPdfForm } from "@/lib/api";
 
 const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
 type PdfFormUploadProps = {
-  role: UserRole;
   onUploaded: () => void;
 };
 
@@ -27,20 +26,19 @@ const EMPTY_FORM: UploadFormState = {
   sourceUrl: "",
 };
 
-export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
+export function PdfFormUpload({ onUploaded }: PdfFormUploadProps) {
   const [form, setForm] = useState<UploadFormState>(EMPTY_FORM);
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [success, setSuccess] = useState<PdfFormUploadResponse | null>(null);
-  const isAdmin = role === "admin";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
     setSuccess(null);
 
-    const validationError = validateUpload(form, file, isAdmin);
+    const validationError = validateUpload(form, file);
     if (validationError) {
       setErrorMessage(validationError);
       return;
@@ -79,12 +77,6 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
         </p>
       </div>
 
-      {!isAdmin ? (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Switch to Admin mode to upload forms.
-        </div>
-      ) : null}
-
       <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
         <div>
           <label className="text-sm font-medium text-zinc-700" htmlFor="pdf-file">
@@ -93,7 +85,7 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
           <input
             accept="application/pdf,.pdf"
             className="mt-2 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700"
-            disabled={!isAdmin || isSubmitting}
+            disabled={isSubmitting}
             id="pdf-file"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             type="file"
@@ -102,14 +94,14 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
         </div>
 
         <TextField
-          disabled={!isAdmin || isSubmitting}
+          disabled={isSubmitting}
           label="Title"
           onChange={(value) => setForm((current) => ({ ...current, title: value }))}
           required
           value={form.title}
         />
         <TextArea
-          disabled={!isAdmin || isSubmitting}
+          disabled={isSubmitting}
           label="Description"
           onChange={(value) =>
             setForm((current) => ({ ...current, description: value }))
@@ -118,7 +110,7 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
-            disabled={!isAdmin || isSubmitting}
+            disabled={isSubmitting}
             label="Category"
             onChange={(value) =>
               setForm((current) => ({ ...current, category: value }))
@@ -126,7 +118,7 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
             value={form.category}
           />
           <TextField
-            disabled={!isAdmin || isSubmitting}
+            disabled={isSubmitting}
             label="Department"
             onChange={(value) =>
               setForm((current) => ({ ...current, department: value }))
@@ -135,7 +127,7 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
           />
         </div>
         <TextField
-          disabled={!isAdmin || isSubmitting}
+          disabled={isSubmitting}
           label="Source URL"
           onChange={(value) =>
             setForm((current) => ({ ...current, sourceUrl: value }))
@@ -160,7 +152,7 @@ export function PdfFormUpload({ role, onUploaded }: PdfFormUploadProps) {
 
         <button
           className="h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-          disabled={!isAdmin || isSubmitting}
+          disabled={isSubmitting}
           type="submit"
         >
           {isSubmitting ? "Uploading..." : "Upload PDF"}
@@ -235,11 +227,7 @@ function TextArea({
 function validateUpload(
   form: UploadFormState,
   file: File | null,
-  isAdmin: boolean,
 ): string {
-  if (!isAdmin) {
-    return "Admin mode is required to upload forms.";
-  }
   if (!file) {
     return "Choose a PDF file to upload.";
   }

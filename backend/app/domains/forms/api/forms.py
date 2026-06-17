@@ -37,7 +37,7 @@ from app.domains.relationships.repositories import RelationshipsRepository
 from app.domains.relationships.services import RelationshipsService
 from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.auth.services import GOVERNANCE_ADMIN_ROLES
-from app.shared.auth import get_current_user, require_any_role, scoped_university_id
+from app.shared.auth import get_current_user, require_any_role
 from app.core.logging import get_logger
 from app.shared.database.session import get_db_session
 from app.shared.events import EventBus, EventContext, EventStore
@@ -96,17 +96,20 @@ def get_forms_file_access_service(
 @router.post("", response_model=FormResponse, status_code=status.HTTP_201_CREATED)
 async def create_form(
     form_data: FormCreate,
+    current_user: AdminUser,
     service: Annotated[FormsService, Depends(get_forms_service)],
 ) -> FormResponse:
     """Create a canonical form."""
 
-    form = await service.create_form(form_data)
+    form = await service.create_form(
+        form_data.model_copy(update={"university_id": current_user.university_id})
+    )
     return form_to_response(form)
 
 
 @router.get("/search", response_model=FormSearchResponse)
 async def search_forms(
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[
         FormsRetrievalService,
         Depends(get_forms_retrieval_service),
@@ -118,7 +121,7 @@ async def search_forms(
 
     forms = await service.retrieve_forms(
         query=q,
-        university_id=university_id,
+        university_id=current_user.university_id,
         limit=limit,
     )
     return FormSearchResponse(
@@ -130,7 +133,7 @@ async def search_forms(
 
 @router.get("/search/semantic", response_model=FormSearchResponse)
 async def semantic_search_forms(
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[
         FormsRetrievalService,
         Depends(get_forms_retrieval_service),
@@ -142,7 +145,7 @@ async def semantic_search_forms(
 
     forms = await service.retrieve_semantic_forms(
         query=q,
-        university_id=university_id,
+        university_id=current_user.university_id,
         limit=limit,
     )
     return FormSearchResponse(
@@ -155,7 +158,6 @@ async def semantic_search_forms(
 @router.post("/{form_id}/verify", response_model=FormVerificationResponse)
 async def verify_form(
     form_id: UUID,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
     request: FormVerifyRequest,
     current_user: AdminUser,
     service: Annotated[
@@ -166,16 +168,15 @@ async def verify_form(
 ) -> FormVerificationResponse:
     """Verify a tenant-scoped form."""
 
-    scoped_university = scoped_university_id(current_user, university_id)
     logger.info(
         "Governance action requested: action=form.verify user_id=%s university_id=%s form_id=%s",
         current_user.user_id,
-        scoped_university,
+        current_user.university_id,
         form_id,
     )
     try:
         form = await service.verify_form(
-            university_id=scoped_university,
+            university_id=current_user.university_id,
             form_id=form_id,
             verified_by=current_user.user_id,
             verification_score=request.verification_score,
@@ -197,7 +198,6 @@ async def verify_form(
 @router.post("/{form_id}/publish", response_model=FormVerificationResponse)
 async def publish_form(
     form_id: UUID,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
     request: FormGovernanceRequest,
     current_user: AdminUser,
     service: Annotated[
@@ -208,16 +208,15 @@ async def publish_form(
 ) -> FormVerificationResponse:
     """Publish a verified tenant-scoped form."""
 
-    scoped_university = scoped_university_id(current_user, university_id)
     logger.info(
         "Governance action requested: action=form.publish user_id=%s university_id=%s form_id=%s",
         current_user.user_id,
-        scoped_university,
+        current_user.university_id,
         form_id,
     )
     try:
         form = await service.publish_form(
-            university_id=scoped_university,
+            university_id=current_user.university_id,
             form_id=form_id,
             review_notes=request.review_notes,
             event_context=EventContext(
@@ -235,7 +234,6 @@ async def publish_form(
 @router.post("/{form_id}/archive", response_model=FormVerificationResponse)
 async def archive_form(
     form_id: UUID,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
     request: FormGovernanceRequest,
     current_user: AdminUser,
     service: Annotated[
@@ -246,16 +244,15 @@ async def archive_form(
 ) -> FormVerificationResponse:
     """Archive a tenant-scoped form."""
 
-    scoped_university = scoped_university_id(current_user, university_id)
     logger.info(
         "Governance action requested: action=form.archive user_id=%s university_id=%s form_id=%s",
         current_user.user_id,
-        scoped_university,
+        current_user.university_id,
         form_id,
     )
     try:
         form = await service.archive_form(
-            university_id=scoped_university,
+            university_id=current_user.university_id,
             form_id=form_id,
             review_notes=request.review_notes,
             event_context=EventContext(
@@ -307,7 +304,7 @@ async def get_form_file(
 @router.get("/{form_id}", response_model=FormResponse)
 async def get_form(
     form_id: UUID,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[FormsService, Depends(get_forms_service)],
     relationships_service: Annotated[
         RelationshipsService,
@@ -317,7 +314,10 @@ async def get_form(
 ) -> FormResponse:
     """Retrieve a tenant-scoped form by ID."""
 
-    form = await service.retrieve_form(university_id=university_id, form_id=form_id)
+    form = await service.retrieve_form(
+        university_id=current_user.university_id,
+        form_id=form_id,
+    )
     if form is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -338,7 +338,7 @@ async def get_form(
 
 @router.get("", response_model=FormListResponse)
 async def list_forms(
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[FormsService, Depends(get_forms_service)],
     q: Annotated[str | None, Query(max_length=255)] = None,
     category: Annotated[str | None, Query(max_length=100)] = None,
@@ -349,7 +349,7 @@ async def list_forms(
     """List tenant-scoped forms."""
 
     forms, total = await service.list_forms(
-        university_id=university_id,
+        university_id=current_user.university_id,
         limit=limit,
         offset=offset,
         query=q,

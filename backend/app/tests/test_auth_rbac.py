@@ -14,6 +14,30 @@ from app.shared.auth.jwt import SupabaseJWTVerifier
 from app.shared.auth.tenant import enforce_university_scope
 
 
+def auth_headers(
+    *,
+    role: str = "admin",
+    university_id=None,
+    jwt_secret: str = "test-secret-with-at-least-32-bytes",
+) -> dict[str, str]:
+    """Build bearer headers for route-level auth tests."""
+
+    token = jwt.encode(
+        {
+            "sub": str(uuid4()),
+            "aud": "authenticated",
+            "exp": datetime.now(UTC) + timedelta(minutes=5),
+            "app_metadata": {
+                "university_id": str(university_id or uuid4()),
+                "role": role,
+            },
+        },
+        jwt_secret,
+        algorithm="HS256",
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_supabase_jwt_verifier_builds_canonical_user(monkeypatch: pytest.MonkeyPatch) -> None:
     """Valid Supabase-style claims should produce an authenticated user context."""
 
@@ -120,3 +144,42 @@ def test_governance_endpoint_requires_authentication() -> None:
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "UNAUTHORIZED"
+
+
+def test_direct_tool_routes_require_authentication() -> None:
+    """Raw tool execution routes should fail closed without a bearer token."""
+
+    client = TestClient(app)
+
+    assert client.get("/tools").status_code == 401
+    assert client.get("/tools/deadline_query").status_code == 401
+
+
+def test_direct_tool_routes_enforce_tool_rbac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Direct tool execution should respect the selected tool's allowed roles."""
+
+    jwt_secret = "test-secret-with-at-least-32-bytes"
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", jwt_secret)
+    monkeypatch.setattr(settings, "SUPABASE_JWT_AUDIENCE", "authenticated")
+    monkeypatch.setattr(settings, "SUPABASE_JWT_ISSUER", None)
+    client = TestClient(app)
+
+    response = client.get(
+        "/tools/reg_faq",
+        headers=auth_headers(role="faculty", jwt_secret=jwt_secret),
+    )
+
+    assert response.status_code == 403
+
+
+def test_orchestrator_query_requires_authentication() -> None:
+    """The orchestration route should not trust anonymous tenant headers."""
+
+    client = TestClient(app)
+    response = client.post(
+        "/orchestrator/query",
+        headers={"X-University-ID": str(uuid4())},
+        json={"query": "find tuition forms"},
+    )
+
+    assert response.status_code == 401

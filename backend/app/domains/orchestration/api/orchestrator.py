@@ -23,6 +23,8 @@ from app.domains.orchestration.services import (
 from app.domains.relationships.repositories import RelationshipsRepository
 from app.domains.relationships.services import RelationshipsService
 from app.domains.relationships.traversal import RelationshipTraversalService
+from app.domains.auth.schemas import AuthenticatedUser
+from app.shared.auth import get_current_user
 from app.shared.database.session import get_db_session
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestration"])
@@ -57,7 +59,7 @@ def get_retrieval_orchestrator(
 @router.post("/query", response_model=OrchestrationResponse)
 async def execute_orchestrated_query(
     request: OrchestrationRequest,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     orchestrator: Annotated[
         RetrievalOrchestrator,
         Depends(get_retrieval_orchestrator),
@@ -68,6 +70,6 @@ async def execute_orchestrated_query(
 
     return await orchestrator.execute_query(
         query=request.query,
-        university_id=university_id,
+        university_id=current_user.university_id,
         correlation_id=correlation_id,
     )

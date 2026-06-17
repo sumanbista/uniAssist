@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from app.domains.auth.models.roles import UserRole
+from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.orchestration.api.orchestrator import get_retrieval_orchestrator
 from app.domains.orchestration.schemas import (
     ExecutionStep,
@@ -17,6 +19,7 @@ from app.domains.orchestration.schemas import (
 from app.domains.orchestration.services import RetrievalOrchestrator, RetrievalPlanner
 from app.domains.orchestration.services.tool_registry import OrchestrationTool, ToolRegistry
 from app.main import app
+from app.shared.auth.dependencies import get_current_user
 
 
 class FakeTool(OrchestrationTool):
@@ -199,11 +202,20 @@ def test_orchestrator_query_endpoint_contract() -> None:
             tool_registry=registry,
         )
 
+    university_id = uuid4()
+
+    async def override_current_user() -> AuthenticatedUser:
+        return AuthenticatedUser(
+            user_id=uuid4(),
+            university_id=university_id,
+            role=UserRole.STUDENT,
+        )
+
     app.dependency_overrides[get_retrieval_orchestrator] = override_orchestrator
+    app.dependency_overrides[get_current_user] = override_current_user
     client = TestClient(app)
     response = client.post(
         "/orchestrator/query",
-        headers={"X-University-ID": str(uuid4())},
         json={"query": "withdrawal form"},
     )
     app.dependency_overrides.clear()

@@ -23,7 +23,6 @@ class ReviewItemResponse(BaseModel):
     title: str
     category: str | None = None
     source_url: str | None = None
-    storage_path: str | None = None
     status: str
     verification_status: str
     submitted_at: datetime

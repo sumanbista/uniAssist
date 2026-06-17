@@ -26,7 +26,7 @@ from app.domains.relationships.traversal import (
     TraversalResult,
 )
 from app.domains.forms.repositories import FormsRepository
-from app.shared.auth import require_any_role, scoped_university_id
+from app.shared.auth import get_current_user, require_any_role
 from app.shared.database.session import get_db_session
 from app.shared.events import EventBus, EventContext, EventStore
 
@@ -67,23 +67,21 @@ def get_relationship_traversal_service(
 )
 async def create_relationship(
     relationship_data: RelationshipCreate,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
     current_user: AdminUser,
     service: Annotated[RelationshipsService, Depends(get_relationships_service)],
     correlation_id: Annotated[UUID | None, Header(alias="X-Correlation-ID")] = None,
 ) -> RelationshipResponse:
     """Create a canonical relationship."""
 
-    scoped_university = scoped_university_id(current_user, university_id)
     logger.info(
         "Governance action requested: action=relationship.create user_id=%s university_id=%s",
         current_user.user_id,
-        scoped_university,
+        current_user.university_id,
     )
     try:
         relationship = await service.attach_relationship(
             relationship_data,
-            university_id=scoped_university,
+            university_id=current_user.university_id,
             event_context=EventContext(
                 actor_id=current_user.user_id,
                 correlation_id=correlation_id,
@@ -115,7 +113,7 @@ async def get_relationships_for_entity(
 @router.post("/traverse", response_model=TraversalResult)
 async def traverse_relationships(
     request: TraversalRequest,
-    university_id: Annotated[UUID, Header(alias="X-University-ID")],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[
         RelationshipTraversalService,
         Depends(get_relationship_traversal_service),
@@ -125,7 +123,7 @@ async def traverse_relationships(
 
     return await service.traverse_related_entities(
         request=request,
-        university_id=university_id,
+        university_id=current_user.university_id,
     )
 
 

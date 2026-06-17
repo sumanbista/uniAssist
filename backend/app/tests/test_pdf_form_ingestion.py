@@ -272,7 +272,10 @@ async def test_successful_pdf_upload_creates_pending_review_form_and_events(
     assert store.events[0].payload["actor_id"] == str(actor_id)
     assert store.events[0].payload["university_id"] == str(university_id)
     assert store.events[0].payload["correlation_id"] == str(correlation_id)
-    assert store.events[0].payload["storage_path"] == response.storage_path
+    assert (
+        store.events[0].payload["storage_path"]
+        == forms_service.created_form_data.storage_path
+    )
     assert store.events[0].payload["form_id"] == str(response.form_id)
 
 
@@ -287,7 +290,6 @@ class FakeRouteService:
             title=kwargs["metadata"].title,
             status="pending_review",
             verification_status="pending_review",
-            storage_path=f"{kwargs['university_id']}/pdf_forms/test.pdf",
             extracted_text_preview="preview",
             page_count=1,
         )

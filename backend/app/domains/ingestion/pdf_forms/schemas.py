@@ -59,6 +59,5 @@ class PdfFormUploadResponse(BaseModel):
     title: str
     status: str
     verification_status: str
-    storage_path: str
     extracted_text_preview: str
     page_count: int

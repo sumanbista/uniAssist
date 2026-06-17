@@ -1,4 +1,8 @@
-import { FormResult } from "@/lib/api";
+"use client";
+
+import { useState } from "react";
+
+import { FormResult, openFormPdf } from "@/lib/api";
 
 export type FormResultsState =
   | { status: "idle"; forms: [] }
@@ -13,6 +17,8 @@ type FormSearchResultsProps = {
 };
 
 export function FormSearchResults({ state }: FormSearchResultsProps) {
+  const [openErrorId, setOpenErrorId] = useState("");
+
   if (state.status === "idle") {
     return null;
   }
@@ -93,14 +99,22 @@ export function FormSearchResults({ state }: FormSearchResultsProps) {
                 </a>
               ) : null}
             </div>
-            <a
+            <div className="flex shrink-0 flex-col gap-2">
+              <button
               className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-teal-700 px-3 text-sm font-semibold text-white transition hover:bg-teal-800"
-              href={form.file_url}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Open Form
-            </a>
+                onClick={() =>
+                  void openFormPdf(form.form_id)
+                    .then(() => setOpenErrorId(""))
+                    .catch(() => setOpenErrorId(form.form_id))
+                }
+                type="button"
+              >
+                Open Form
+              </button>
+              {openErrorId === form.form_id ? (
+                <p className="text-xs text-red-700">PDF unavailable for this session.</p>
+              ) : null}
+            </div>
           </div>
         </article>
       ))}

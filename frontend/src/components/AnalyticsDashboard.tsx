@@ -5,13 +5,11 @@ import { useEffect, useState } from "react";
 import {
   AnalyticsSummary,
   RecentQueryLog,
-  UserRole,
   fetchAnalyticsRoles,
   fetchAnalyticsSummary,
   fetchAnalyticsTools,
   fetchRecentQueries,
 } from "@/lib/api";
-import { RoleSwitcher } from "@/components/RoleSwitcher";
 
 type AnalyticsState = {
   summary: AnalyticsSummary | null;
@@ -28,7 +26,6 @@ const EMPTY_STATE: AnalyticsState = {
 };
 
 export function AnalyticsDashboard() {
-  const [role, setRole] = useState<UserRole>("admin");
   const [analytics, setAnalytics] = useState<AnalyticsState>(EMPTY_STATE);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,10 +38,10 @@ export function AnalyticsDashboard() {
       setErrorMessage("");
       try {
         const [summary, tools, roles, recent] = await Promise.all([
-          fetchAnalyticsSummary(role),
-          fetchAnalyticsTools(role),
-          fetchAnalyticsRoles(role),
-          fetchRecentQueries(role),
+          fetchAnalyticsSummary(),
+          fetchAnalyticsTools(),
+          fetchAnalyticsRoles(),
+          fetchRecentQueries(),
         ]);
 
         if (isMounted) {
@@ -71,18 +68,17 @@ export function AnalyticsDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [role]);
+  }, []);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-lg border border-zinc-200 bg-white p-4">
         <div>
-          <p className="font-medium text-zinc-950">Analytics access role</p>
+          <p className="font-medium text-zinc-950">Analytics access</p>
           <p className="text-sm text-zinc-500">
-            Only admin can view persisted query analytics.
+            Persisted query analytics require an admin JWT.
           </p>
         </div>
-        <RoleSwitcher value={role} onChange={setRole} />
       </div>
 
       {errorMessage ? (

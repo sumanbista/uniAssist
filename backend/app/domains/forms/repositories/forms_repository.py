@@ -16,6 +16,7 @@ class FormsRepository:
     """Repository for tenant-scoped form persistence operations."""
 
     EXCLUDED_RETRIEVAL_STATUSES = ("archived", "deprecated", "rejected")
+    PUBLIC_RETRIEVAL_STATUSES = ("verified", "published")
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -134,8 +135,8 @@ class FormsRepository:
         rows = await self.session.execute(
             self._tenant_scoped_query(university_id)
             .where(Form.searchable_vector.op("@@")(search_query))
-            .where(Form.status.notin_(self.EXCLUDED_RETRIEVAL_STATUSES))
-            .where(Form.verification_status.notin_(("rejected", "archived", "deprecated")))
+            .where(Form.status.in_(self.PUBLIC_RETRIEVAL_STATUSES))
+            .where(Form.verification_status.in_(self.PUBLIC_RETRIEVAL_STATUSES))
             .order_by(rank.desc(), Form.title.asc(), Form.id.asc())
             .limit(limit)
         )
@@ -162,8 +163,8 @@ class FormsRepository:
             self._tenant_scoped_query(university_id)
             .add_columns(similarity_score)
             .where(Form.embedding.is_not(None))
-            .where(Form.status.notin_(self.EXCLUDED_RETRIEVAL_STATUSES))
-            .where(Form.verification_status.notin_(("rejected", "archived", "deprecated")))
+            .where(Form.status.in_(self.PUBLIC_RETRIEVAL_STATUSES))
+            .where(Form.verification_status.in_(self.PUBLIC_RETRIEVAL_STATUSES))
             .order_by(
                 Form.embedding.op("<=>")(query_embedding).asc(),
                 Form.title.asc(),

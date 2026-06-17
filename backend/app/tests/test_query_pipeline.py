@@ -1,9 +1,13 @@
 """Tests for Sprint 2 query routing pipeline."""
 
 import unittest
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
+import jwt
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.main import app
 from app.domains.retrieval.schemas.query import RoutingDecision
 from app.domains.retrieval.router.routing_logic import parse_routing_decision
@@ -18,6 +22,38 @@ class QueryPipelineTests(unittest.TestCase):
         """Create a test client for each test."""
 
         self.client = TestClient(app)
+        self.jwt_secret = "test-secret-with-at-least-32-bytes"
+        self.previous_jwt_secret = settings.SUPABASE_JWT_SECRET
+        self.previous_jwt_audience = settings.SUPABASE_JWT_AUDIENCE
+        self.previous_jwt_issuer = settings.SUPABASE_JWT_ISSUER
+        settings.SUPABASE_JWT_SECRET = self.jwt_secret
+        settings.SUPABASE_JWT_AUDIENCE = "authenticated"
+        settings.SUPABASE_JWT_ISSUER = None
+
+    def tearDown(self) -> None:
+        """Restore auth settings after each test."""
+
+        settings.SUPABASE_JWT_SECRET = self.previous_jwt_secret
+        settings.SUPABASE_JWT_AUDIENCE = self.previous_jwt_audience
+        settings.SUPABASE_JWT_ISSUER = self.previous_jwt_issuer
+
+    def auth_headers(self, role: str = "admin") -> dict[str, str]:
+        """Build bearer auth headers for protected route tests."""
+
+        token = jwt.encode(
+            {
+                "sub": str(uuid4()),
+                "aud": "authenticated",
+                "exp": datetime.now(UTC) + timedelta(minutes=5),
+                "app_metadata": {
+                    "university_id": str(uuid4()),
+                    "role": role,
+                },
+            },
+            self.jwt_secret,
+            algorithm="HS256",
+        )
+        return {"Authorization": f"Bearer {token}"}
 
     def test_all_tools_route_from_natural_language(self) -> None:
         """Each Phase 1 tool should be reachable through /query."""
@@ -169,12 +205,17 @@ class QueryPipelineTests(unittest.TestCase):
     def test_query_endpoint_persists_log(self) -> None:
         """Query endpoint should persist telemetry for successful requests."""
 
-        before = self.client.get("/analytics/summary?role=admin").json()["total_queries"]
+        headers = self.auth_headers()
+        before = self.client.get("/analytics/summary", headers=headers).json()[
+            "total_queries"
+        ]
         response = self.client.post(
             "/query",
             json={"query": "When is add/drop deadline?", "role": "student"},
         )
-        after = self.client.get("/analytics/summary?role=admin").json()["total_queries"]
+        after = self.client.get("/analytics/summary", headers=headers).json()[
+            "total_queries"
+        ]
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(after, before + 1)
@@ -182,12 +223,17 @@ class QueryPipelineTests(unittest.TestCase):
     def test_fallback_query_is_logged(self) -> None:
         """Fallback requests should increment fallback analytics."""
 
-        before = self.client.get("/analytics/summary?role=admin").json()["fallback_count"]
+        headers = self.auth_headers()
+        before = self.client.get("/analytics/summary", headers=headers).json()[
+            "fallback_count"
+        ]
         response = self.client.post(
             "/query",
             json={"query": "Tell me a joke", "role": "student"},
         )
-        after = self.client.get("/analytics/summary?role=admin").json()["fallback_count"]
+        after = self.client.get("/analytics/summary", headers=headers).json()[
+            "fallback_count"
+        ]
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(after, before + 1)
@@ -195,10 +241,15 @@ class QueryPipelineTests(unittest.TestCase):
     def test_analytics_requires_admin_role(self) -> None:
         """Analytics endpoints should be restricted to admins."""
 
-        response = self.client.get("/analytics/summary?role=student")
+        response = self.client.get("/analytics/summary")
 
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json(), {"error": "Access denied"})
+        self.assertEqual(response.status_code, 401)
+
+        student_response = self.client.get(
+            "/analytics/summary",
+            headers=self.auth_headers("student"),
+        )
+        self.assertEqual(student_response.status_code, 403)
 
 
 if __name__ == "__main__":

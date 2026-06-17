@@ -85,7 +85,6 @@ class FakePdfIngestionService:
             title=form.title,
             status=form.status,
             verification_status=form.verification_status,
-            storage_path=f"{university_id}/pdf_forms/{form.id}.pdf",
             extracted_text_preview="Uploaded PDF form",
             page_count=1,
         )
@@ -227,7 +226,6 @@ def _review_item(form: SimpleNamespace) -> ReviewItemResponse:
         title=form.title,
         category=form.category,
         source_url=form.source_url,
-        storage_path=None,
         status=form.status,
         verification_status=form.verification_status,
         submitted_at=form.submitted_at,
@@ -273,6 +271,7 @@ def test_forms_pdf_workflow_e2e(tmp_path: Path) -> None:
             files={"file": ("tuition.pdf", b"%PDF-1.7\nbody", "application/pdf")},
         )
         assert upload_response.status_code == 200
+        assert "storage_path" not in upload_response.json()
         uploaded_form_id = upload_response.json()["form_id"]
 
         pending_response = client.get(
@@ -280,6 +279,7 @@ def test_forms_pdf_workflow_e2e(tmp_path: Path) -> None:
             headers={"X-University-ID": str(university_id)},
         )
         assert pending_response.status_code == 200
+        assert "storage_path" not in pending_response.json()[0]
         assert [item["entity_id"] for item in pending_response.json()] == [
             uploaded_form_id
         ]

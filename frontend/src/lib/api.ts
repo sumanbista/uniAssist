@@ -121,9 +121,6 @@ export type ReviewDecisionResponse = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
-const UNIVERSITY_ID =
-  process.env.NEXT_PUBLIC_UNIVERSITY_ID ??
-  "11111111-1111-4111-8111-111111111111";
 
 export async function sendQuery(
   query: string,
@@ -138,6 +135,7 @@ export async function sendQuery(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
     },
     body: JSON.stringify({ message: query, role }),
   });
@@ -163,9 +161,7 @@ export async function searchForms(
     limit: String(limit),
   });
   const response = await fetch(`${API_BASE_URL}/forms/search?${searchParams}`, {
-    headers: {
-      "X-University-ID": UNIVERSITY_ID,
-    },
+    headers: authHeaders(),
   });
 
   if (response.status === 401 || response.status === 403) {
@@ -191,6 +187,7 @@ export async function uploadPdfForm(
 
   const response = await fetch(`${API_BASE_URL}/ingestion/forms/pdf`, {
     method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
 
@@ -207,11 +204,7 @@ export async function uploadPdfForm(
 export async function getPendingReviews(): Promise<ReviewItem[]> {
   const response = await fetch(
     `${API_BASE_URL}/governance/reviews/pending?entity_type=form`,
-    {
-      headers: {
-        "X-University-ID": UNIVERSITY_ID,
-      },
-    },
+    { headers: authHeaders() },
   );
 
   if (response.status === 401 || response.status === 403) {
@@ -230,11 +223,7 @@ export async function getReviewItem(
 ): Promise<ReviewItem> {
   const response = await fetch(
     `${API_BASE_URL}/governance/reviews/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
-    {
-      headers: {
-        "X-University-ID": UNIVERSITY_ID,
-      },
-    },
+    { headers: authHeaders() },
   );
 
   if (response.status === 401 || response.status === 403) {
@@ -257,7 +246,7 @@ export async function submitReviewDecision(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-University-ID": UNIVERSITY_ID,
+      ...authHeaders(),
     },
     body: JSON.stringify({
       entity_type: input.entity_type,
@@ -285,6 +274,22 @@ export function getFormFileUrl(formId: string): string {
   return `${API_BASE_URL}/forms/${encodedFormId}/file`;
 }
 
+export async function openFormPdf(formId: string): Promise<void> {
+  const response = await fetch(getFormFileUrl(formId), {
+    headers: authHeaders(),
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("FORM_FILE_UNAUTHORIZED");
+  }
+  if (!response.ok) {
+    throw new Error("FORM_FILE_UNAVAILABLE");
+  }
+  const pdfBlob = await response.blob();
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, "_blank", "noopener,noreferrer");
+  window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+}
+
 export function extractFormResults(value: unknown): FormResult[] {
   const containers = collectFormContainers(value);
   const forms = containers.flatMap((container) => {
@@ -303,28 +308,46 @@ export function extractFormResults(value: unknown): FormResult[] {
   return forms.map(normalizeFormResult).filter((form) => form !== null);
 }
 
-async function fetchAnalytics<T>(path: string, role: UserRole): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}?role=${role}`);
+async function fetchAnalytics<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: authHeaders(),
+  });
   if (!response.ok) {
     throw new Error("Analytics are available to admins only.");
   }
   return response.json() as Promise<T>;
 }
 
-export async function fetchAnalyticsSummary(role: UserRole): Promise<AnalyticsSummary> {
-  return fetchAnalytics<AnalyticsSummary>("/analytics/summary", role);
+export async function fetchAnalyticsSummary(): Promise<AnalyticsSummary> {
+  return fetchAnalytics<AnalyticsSummary>("/analytics/summary");
 }
 
-export async function fetchAnalyticsTools(role: UserRole): Promise<Record<string, number>> {
-  return fetchAnalytics<Record<string, number>>("/analytics/tools", role);
+export async function fetchAnalyticsTools(): Promise<Record<string, number>> {
+  return fetchAnalytics<Record<string, number>>("/analytics/tools");
 }
 
-export async function fetchAnalyticsRoles(role: UserRole): Promise<Record<string, number>> {
-  return fetchAnalytics<Record<string, number>>("/analytics/roles", role);
+export async function fetchAnalyticsRoles(): Promise<Record<string, number>> {
+  return fetchAnalytics<Record<string, number>>("/analytics/roles");
 }
 
-export async function fetchRecentQueries(role: UserRole): Promise<RecentQueryLog[]> {
-  return fetchAnalytics<RecentQueryLog[]>("/analytics/recent", role);
+export async function fetchRecentQueries(): Promise<RecentQueryLog[]> {
+  return fetchAnalytics<RecentQueryLog[]>("/analytics/recent");
+}
+
+function authHeaders(): Record<string, string> {
+  const token = authToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function authToken(): string | null {
+  const envToken = process.env.NEXT_PUBLIC_DEMO_JWT?.trim();
+  if (envToken) {
+    return envToken;
+  }
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem("uniassist_jwt")?.trim() || null;
 }
 
 function validateFormSearchResponse(value: unknown): FormSearchResponse {

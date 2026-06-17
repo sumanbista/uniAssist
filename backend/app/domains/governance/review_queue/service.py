@@ -219,7 +219,6 @@ def _form_to_review_item(form: Form) -> ReviewItemResponse:
         title=form.title,
         category=form.category,
         source_url=form.source_url,
-        storage_path=form.storage_path,
         status=form.status,
         verification_status=form.verification_status,
         submitted_at=form.created_at,

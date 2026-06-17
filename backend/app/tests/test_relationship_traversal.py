@@ -5,6 +5,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from app.domains.auth.models.roles import UserRole
+from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.orchestration.schemas import (
     ExecutionStep,
     OrchestrationToolName,
@@ -19,6 +21,7 @@ from app.domains.relationships.traversal import (
     TraversalStatus,
 )
 from app.main import app
+from app.shared.auth.dependencies import get_current_user
 from app.tests.relationship_traversal_fakes import (
     FakeFormsRepository,
     FakeRelationshipsService,
@@ -163,11 +166,18 @@ def test_relationship_traverse_endpoint_contract() -> None:
             ],
         )
 
+    async def override_current_user() -> AuthenticatedUser:
+        return AuthenticatedUser(
+            user_id=uuid4(),
+            university_id=university_id,
+            role=UserRole.STUDENT,
+        )
+
     app.dependency_overrides[get_relationship_traversal_service] = override_service
+    app.dependency_overrides[get_current_user] = override_current_user
     client = TestClient(app)
     response = client.post(
         "/relationships/traverse",
-        headers={"X-University-ID": str(university_id)},
         json={"entity_id": str(root_id), "entity_type": "form"},
     )
     app.dependency_overrides.clear()

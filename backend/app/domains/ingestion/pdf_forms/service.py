@@ -130,7 +130,6 @@ class PdfFormIngestionService:
             title=form.title,
             status=form.status,
             verification_status=form.verification_status,
-            storage_path=storage_path,
             extracted_text_preview=extracted_text_preview,
             page_count=extraction.page_count,
         )

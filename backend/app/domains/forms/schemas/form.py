@@ -101,7 +101,6 @@ class FormResponse(BaseModel):
     description: str | None = None
     category: str | None = None
     source_url: str | None = None
-    storage_path: str | None = None
     verification_status: str
     verification_score: float | None = None
     last_verified_at: datetime | None = None

@@ -156,6 +156,7 @@ Frontend:
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_USE_MOCK_API=false
+NEXT_PUBLIC_DEMO_JWT=<supabase-compatible-jwt>
 ```
 
 Use mock mode when the backend is unavailable:
@@ -183,10 +184,10 @@ curl -X POST http://127.0.0.1:8000/query \
 Admin analytics:
 
 ```text
-GET /analytics/summary?role=admin
-GET /analytics/tools?role=admin
-GET /analytics/roles?role=admin
-GET /analytics/recent?role=admin
+GET /analytics/summary
+GET /analytics/tools
+GET /analytics/roles
+GET /analytics/recent
 ```
 
 Completed Forms workflow:
@@ -199,10 +200,10 @@ GET /forms/search?q=
 GET /forms/{form_id}/file
 ```
 
-Non-admin analytics requests return:
+Unauthenticated or non-admin analytics requests return an auth error:
 
 ```json
-{"error":"Access denied"}
+{"detail":{"code":"UNAUTHORIZED","message":"Authentication required"}}
 ```
 
 ## Forms Security Notes

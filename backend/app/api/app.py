@@ -1,16 +1,18 @@
 """FastAPI entrypoint for the UniAssist AI backend."""
 
 import time
+from typing import Annotated, Any
 from uuid import uuid4
-from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.domains.analytics.services.analytics_service import AnalyticsService
+from app.domains.auth.schemas import AuthenticatedUser
+from app.domains.auth.services import GOVERNANCE_ADMIN_ROLES
+from app.domains.auth.services.auth_guard import AccessDeniedError, authorize_tool_access
 from app.shared.observability.db import initialize_logging_db
 from app.shared.observability.query_logger import QueryLogger
 from app.shared.observability.models import QueryLogRecord
@@ -26,6 +28,8 @@ from app.domains.retrieval.router.fallback_handler import fallback_response
 from app.domains.retrieval.router.intent_classifier import IntentClassifier
 from app.domains.retrieval.router.routing_logic import RoutingLogic
 from app.domains.retrieval.services.registry_factory import build_tool_registry
+from app.shared.auth import get_current_user, require_any_role
+from app.shared.auth.errors import forbidden_error
 
 app = FastAPI(title=settings.APP_NAME, version=settings.API_VERSION)
 app.add_middleware(
@@ -46,6 +50,11 @@ routing_logic = RoutingLogic(tool_registry)
 query_logger = QueryLogger()
 analytics_service = AnalyticsService()
 logger = get_logger(__name__)
+AnyUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
+AdminUser = Annotated[
+    AuthenticatedUser,
+    Depends(require_any_role(GOVERNANCE_ADMIN_ROLES)),
+]
 
 
 @app.get("/health")
@@ -63,27 +72,37 @@ def startup() -> None:
 
 
 @app.get("/tools", response_model=list[ToolMetadata])
-def list_tools() -> list[ToolMetadata]:
+def list_tools(_current_user: AnyUser) -> list[ToolMetadata]:
     """List all registered tools and their metadata."""
 
     return tool_registry.list_tools()
 
 
 @app.get("/tools/{tool_name}")
-def run_tool_with_query_params(tool_name: str, request: Request) -> dict[str, Any]:
+def run_tool_with_query_params(
+    tool_name: str,
+    request: Request,
+    current_user: AnyUser,
+) -> dict[str, Any]:
     """Run a tool using URL query parameters for manual testing."""
 
     params = {
         key: _coerce_query_value(value)
         for key, value in request.query_params.items()
     }
+    _authorize_direct_tool(tool_name, current_user)
     return tool_registry.run_tool(tool_name, params)
 
 
 @app.post("/tools/{tool_name}")
-def run_tool_with_body(tool_name: str, request: ToolRequest) -> dict[str, Any]:
+def run_tool_with_body(
+    tool_name: str,
+    request: ToolRequest,
+    current_user: AnyUser,
+) -> dict[str, Any]:
     """Run a tool using a structured JSON request body."""
 
+    _authorize_direct_tool(tool_name, current_user)
     return tool_registry.run_tool(tool_name, request.params)
 
 
@@ -131,42 +150,30 @@ def query_university_info(request: QueryRequest) -> QueryResponse:
 
 
 @app.get("/analytics/summary")
-def analytics_summary(role: str = "student"):
+def analytics_summary(_current_user: AdminUser):
     """Return admin-only query analytics summary."""
 
-    denied_response = _admin_only(role)
-    if denied_response is not None:
-        return denied_response
     return analytics_service.summary()
 
 
 @app.get("/analytics/tools")
-def analytics_tools(role: str = "student"):
+def analytics_tools(_current_user: AdminUser):
     """Return admin-only tool usage counts."""
 
-    denied_response = _admin_only(role)
-    if denied_response is not None:
-        return denied_response
     return analytics_service.tool_counts()
 
 
 @app.get("/analytics/roles")
-def analytics_roles(role: str = "student"):
+def analytics_roles(_current_user: AdminUser):
     """Return admin-only query counts by role."""
 
-    denied_response = _admin_only(role)
-    if denied_response is not None:
-        return denied_response
     return analytics_service.role_counts()
 
 
 @app.get("/analytics/recent")
-def analytics_recent(role: str = "student", limit: int = 20):
+def analytics_recent(_current_user: AdminUser, limit: int = 20):
     """Return admin-only recent query logs."""
 
-    denied_response = _admin_only(role)
-    if denied_response is not None:
-        return denied_response
     return analytics_service.recent_queries(limit=limit)
 
 
@@ -205,9 +212,13 @@ def _log_query(
     )
 
 
-def _admin_only(role: str) -> JSONResponse | None:
-    """Return an access denial response unless the role is admin."""
+def _authorize_direct_tool(tool_name: str, current_user: AuthenticatedUser) -> None:
+    """Apply tool RBAC to direct tool execution routes."""
 
-    if role != UserRole.ADMIN.value:
-        return JSONResponse(status_code=403, content={"error": "Access denied"})
-    return None
+    tool = tool_registry.get_tool(tool_name)
+    if tool is None:
+        return
+    try:
+        authorize_tool_access(tool, current_user.role)
+    except AccessDeniedError as exc:
+        raise forbidden_error() from exc

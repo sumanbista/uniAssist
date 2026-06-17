@@ -5,14 +5,13 @@ import { useEffect, useState } from "react";
 import {
   getPendingReviews,
   getReviewItem,
+  openFormPdf,
   ReviewDecision,
   ReviewItem,
   submitReviewDecision,
-  UserRole,
 } from "@/lib/api";
 
 type ReviewQueueProps = {
-  role: UserRole;
   refreshKey: number;
 };
 
@@ -23,7 +22,7 @@ type QueueState =
   | { status: "unauthorized"; reviews: [] }
   | { status: "error"; reviews: [] };
 
-export function ReviewQueue({ role, refreshKey }: ReviewQueueProps) {
+export function ReviewQueue({ refreshKey }: ReviewQueueProps) {
   const [queueState, setQueueState] = useState<QueueState>({
     status: "loading",
     reviews: [],
@@ -31,16 +30,11 @@ export function ReviewQueue({ role, refreshKey }: ReviewQueueProps) {
   const [notesById, setNotesById] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
-  const isAdmin = role === "admin";
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadReviews() {
-      if (!isAdmin) {
-        setQueueState({ status: "unauthorized", reviews: [] });
-        return;
-      }
       setQueueState({ status: "loading", reviews: [] });
       setMessage("");
       try {
@@ -70,7 +64,7 @@ export function ReviewQueue({ role, refreshKey }: ReviewQueueProps) {
     return () => {
       isMounted = false;
     };
-  }, [isAdmin, refreshKey]);
+  }, [refreshKey]);
 
   async function decide(review: ReviewItem, decision: ReviewDecision) {
     setBusyId(review.entity_id);
@@ -110,7 +104,7 @@ export function ReviewQueue({ role, refreshKey }: ReviewQueueProps) {
         </div>
         <button
           className="h-9 rounded-lg border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
-          disabled={!isAdmin || queueState.status === "loading"}
+          disabled={queueState.status === "loading"}
           onClick={() => {
             setQueueState({ status: "loading", reviews: [] });
             void getPendingReviews()
@@ -148,6 +142,7 @@ export function ReviewQueue({ role, refreshKey }: ReviewQueueProps) {
         busyId={busyId}
         notesById={notesById}
         onDecide={decide}
+        onOpenError={() => setMessage("The PDF could not be opened for this session.")}
         onNotesChange={(entityId, value) =>
           setNotesById((current) => ({ ...current, [entityId]: value }))
         }
@@ -161,12 +156,14 @@ function QueueBody({
   busyId,
   notesById,
   onDecide,
+  onOpenError,
   onNotesChange,
   state,
 }: {
   busyId: string;
   notesById: Record<string, string>;
   onDecide: (review: ReviewItem, decision: ReviewDecision) => void;
+  onOpenError: () => void;
   onNotesChange: (entityId: string, value: string) => void;
   state: QueueState;
 }) {
@@ -215,14 +212,15 @@ function QueueBody({
                 </a>
               ) : null}
             </div>
-            <a
+            <button
               className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100"
-              href={review.file_url}
-              rel="noopener noreferrer"
-              target="_blank"
+              onClick={() =>
+                void openFormPdf(review.entity_id).catch(onOpenError)
+              }
+              type="button"
             >
               Open PDF
-            </a>
+            </button>
           </div>
           <label
             className="mt-4 block text-sm font-medium text-zinc-700"

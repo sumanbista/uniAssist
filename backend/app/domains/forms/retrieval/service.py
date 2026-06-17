@@ -12,8 +12,7 @@ from app.domains.forms.retrieval.ranking import rank_forms
 from app.shared.ai import EmbeddingProvider, LocalEmbeddingProvider
 
 logger = get_logger(__name__)
-EXCLUDED_RETRIEVAL_STATUSES = frozenset({"archived", "deprecated", "rejected"})
-EXCLUDED_VERIFICATION_STATUSES = frozenset({"archived", "deprecated", "rejected"})
+PUBLIC_RETRIEVAL_STATUSES = frozenset({"verified", "published"})
 
 
 @dataclass(frozen=True)
@@ -179,9 +178,8 @@ def _is_retrievable_form(form: Any) -> bool:
     """Return whether a form can be exposed by retrieval."""
 
     return (
-        getattr(form, "status", None) not in EXCLUDED_RETRIEVAL_STATUSES
-        and getattr(form, "verification_status", None)
-        not in EXCLUDED_VERIFICATION_STATUSES
+        getattr(form, "status", None) in PUBLIC_RETRIEVAL_STATUSES
+        and getattr(form, "verification_status", None) in PUBLIC_RETRIEVAL_STATUSES
     )
 
 
