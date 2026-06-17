@@ -44,6 +44,17 @@ flowchart LR
 - Data freshness indicators in assistant responses
 - Mock API mode for frontend demos when the backend is unavailable
 
+## Forms Workflow
+
+UniAssist now includes a governed Forms workflow for admin-managed PDF forms:
+
+- Admins can upload PDF forms for ingestion.
+- Uploaded forms enter a human review queue before student discovery.
+- Admin reviewers can approve or reject pending forms.
+- Students can search approved, verified forms.
+- Verified PDFs open through a secure `Open Form PDF` path, so students do not need raw storage paths.
+- Rejected, archived, and deprecated forms stay hidden from search and blocked from PDF access.
+
 ## Tech Stack
 
 - Frontend: Next.js, React, Tailwind CSS
@@ -64,12 +75,12 @@ backend/
       retrieval/         # current router, tools, schemas, response formatting
       auth/              # roles and tool authorization guard
       analytics/         # analytics aggregation service
-      forms/             # placeholder future domain
+      forms/             # governed institutional forms, search, and PDF access
       documents/         # placeholder future domain
       relationships/     # placeholder future domain
-      ingestion/         # placeholder future domain
+      ingestion/         # ingestion routes, including PDF form upload
       orchestration/     # placeholder future domain
-      governance/        # placeholder future domain
+      governance/        # human review queue and approval decisions
     shared/
       observability/     # SQLite query logging infrastructure
       database/          # placeholder shared DB infrastructure
@@ -132,6 +143,12 @@ Admin analytics page:
 http://localhost:3000/admin/analytics
 ```
 
+Admin Forms page:
+
+```text
+http://localhost:3000/admin/forms
+```
+
 ## Environment Variables
 
 Frontend:
@@ -172,11 +189,29 @@ GET /analytics/roles?role=admin
 GET /analytics/recent?role=admin
 ```
 
+Completed Forms workflow:
+
+```text
+POST /ingestion/forms/pdf
+GET /governance/reviews/pending
+POST /governance/reviews/decision
+GET /forms/search?q=
+GET /forms/{form_id}/file
+```
+
 Non-admin analytics requests return:
 
 ```json
 {"error":"Access denied"}
 ```
+
+## Forms Security Notes
+
+- PDF upload and review actions are RBAC-protected for governance admin roles.
+- Form search, review, and file access are tenant-aware through university scoping.
+- Student-facing PDF access uses `GET /forms/{form_id}/file`; students do not receive or need raw `storage_path` values.
+- PDF uploads validate content type, `.pdf` extension, file size, and PDF magic bytes before ingestion.
+- Rejected, archived, and deprecated forms are excluded from retrieval and blocked from PDF file access.
 
 ## Demo Flow
 
@@ -185,6 +220,12 @@ Non-admin analytics requests return:
 3. Switch to `faculty` and ask: `How do I resolve registration holds?`
 4. Confirm access is denied and trace explains authorization.
 5. Visit `/admin/analytics` as `admin` and inspect query volume, latency, fallback rate, and recent logs.
+6. Visit `/admin/forms` as an admin and upload a PDF form.
+7. Confirm the uploaded form appears in the human review queue.
+8. Open the pending PDF from the review queue.
+9. Approve the form.
+10. Search for the form as a student and open the verified PDF through `Open Form PDF`.
+11. Reject another pending form and confirm it remains hidden from student search and blocked from PDF access.
 
 ## Data Freshness
 
@@ -218,9 +259,15 @@ The database is generated at runtime and ignored by Git. Logged fields include:
 Backend:
 
 ```bash
-cd backend
-venv/bin/python -m compileall app
-venv/bin/python -m unittest discover app/tests
+python3 -m compileall backend/app
+python3 -m pytest backend/app/tests
+```
+
+Frontend:
+
+```bash
+npm --prefix frontend run lint
+npm --prefix frontend run build
 ```
 
 ## Migration Notes
@@ -232,14 +279,6 @@ to `app/shared/observability`, while analytics aggregation lives in
 `app/domains/analytics`.
 
 The compatibility entrypoint remains `uvicorn app.main:app`.
-
-Frontend:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
 
 ## Future Improvements
 
