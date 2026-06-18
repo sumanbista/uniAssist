@@ -7,6 +7,7 @@ from app.domains.orchestration.services.tool_registry import (
     ToolRegistry,
 )
 from app.domains.orchestration.services.calendar_tool import CalendarQueryTool
+from app.domains.orchestration.services.contact_tool import ContactLookupTool
 from app.domains.orchestration.services.deadline_tool import DeadlineQueryTool
 from app.domains.orchestration.services.tools import (
     FormsSearchTool,
@@ -16,6 +17,7 @@ from app.domains.orchestration.services.tools import (
 
 __all__ = [
     "CalendarQueryTool",
+    "ContactLookupTool",
     "DeadlineQueryTool",
     "FormsSearchTool",
     "OrchestrationTool",

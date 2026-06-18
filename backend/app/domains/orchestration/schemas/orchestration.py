@@ -19,6 +19,7 @@ class OrchestrationStatus(StrEnum):
 class OrchestrationToolName(StrEnum):
     """Explicit allowlisted tools supported by the foundational orchestrator."""
 
+    CONTACT_LOOKUP = "contact_lookup"
     FORMS_SEARCH = "forms_search"
     SEMANTIC_FORMS_SEARCH = "semantic_forms_search"
     RELATIONSHIP_LOOKUP = "relationship_lookup"

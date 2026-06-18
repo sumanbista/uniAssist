@@ -88,7 +88,24 @@ class RetrievalPlanner:
             "tuition",
             "financial aid",
         )
+        contact_keywords = (
+            "who is",
+            "contact",
+            "email",
+            "phone",
+            "registrar",
+            "financial aid",
+            "dean",
+            "office",
+            "department",
+        )
         form_keywords = ("form", "application", "request")
+        if any(keyword in normalized_query for keyword in contact_keywords):
+            return [
+                OrchestrationToolName.CONTACT_LOOKUP,
+                OrchestrationToolName.FORMS_SEARCH,
+                OrchestrationToolName.DEADLINE_QUERY,
+            ]
         has_deadline = any(keyword in normalized_query for keyword in deadline_keywords)
         has_form = any(keyword in normalized_query for keyword in form_keywords)
         if has_deadline and has_form:

@@ -14,6 +14,7 @@ from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.auth.services import GOVERNANCE_ADMIN_ROLES
 from app.domains.auth.services.auth_guard import AccessDeniedError, authorize_tool_access
 from app.domains.calendar.api import router as calendar_router
+from app.domains.contacts.api import router as contacts_router
 from app.domains.deadlines.api import router as deadlines_router
 from app.shared.observability.db import initialize_logging_db
 from app.shared.observability.query_logger import QueryLogger
@@ -42,6 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(calendar_router)
+app.include_router(contacts_router)
 app.include_router(deadlines_router)
 app.include_router(forms_router)
 app.include_router(review_queue_router)

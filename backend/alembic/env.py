@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.domains.calendar.models import AcademicCalendarEntry
+from app.domains.contacts.models import Contact
 from app.domains.deadlines.models import Deadline
 from app.domains.forms.models import Form, FormRelationship
 from app.domains.ingestion.models import RawPage
@@ -31,6 +32,7 @@ _registered_models = (
     EntityRelationship,
     EventStoreRecord,
     AcademicCalendarEntry,
+    Contact,
     Deadline,
     RawPage,
 )

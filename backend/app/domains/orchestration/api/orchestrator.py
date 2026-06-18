@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.calendar.repositories import CalendarRepository
 from app.domains.calendar.services import CalendarService
+from app.domains.contacts.repositories import ContactsRepository
+from app.domains.contacts.services import ContactsService
 from app.domains.deadlines.repositories import DeadlineRepository
 from app.domains.deadlines.services import DeadlineService
 from app.domains.forms.repositories import FormsRepository
@@ -19,6 +21,7 @@ from app.domains.orchestration.schemas import (
 )
 from app.domains.orchestration.services import (
     CalendarQueryTool,
+    ContactLookupTool,
     DeadlineQueryTool,
     FormsSearchTool,
     RelationshipLookupTool,
@@ -50,6 +53,7 @@ def get_retrieval_orchestrator(
         deadlines_repository=DeadlineRepository(session),
     )
     registry = ToolRegistry()
+    registry.register(ContactLookupTool(ContactsService(ContactsRepository(session))))
     registry.register(FormsSearchTool(forms_service))
     registry.register(SemanticFormsSearchTool(forms_service))
     registry.register(CalendarQueryTool(CalendarService(CalendarRepository(session))))

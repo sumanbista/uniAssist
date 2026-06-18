@@ -186,6 +186,34 @@ def test_orchestration_request_sanitizes_query() -> None:
     assert request.query == "withdrawal form"
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Who is the registrar?",
+        "Contact financial aid.",
+        "CS department phone number.",
+        "Dean of students office.",
+    ],
+)
+def test_planner_routes_contact_queries_to_contact_lookup(query: str) -> None:
+    """Contact-like queries should use deterministic contact lookup first."""
+
+    planner = RetrievalPlanner(
+        allowed_tools=["contact_lookup", "forms_search", "deadline_query"],
+        max_steps=3,
+        timeout_seconds=1.0,
+        result_limit=3,
+    )
+
+    plan = planner.build_plan(
+        request_id=uuid4(),
+        correlation_id=uuid4(),
+        query=query,
+    )
+
+    assert plan.selected_tools[0] == OrchestrationToolName.CONTACT_LOOKUP
+
+
 def test_orchestrator_query_endpoint_contract() -> None:
     """API endpoint should return trace, retrieval results, and metadata."""
 

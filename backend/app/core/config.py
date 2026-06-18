@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     FORMS_FTS_WEIGHT: float = 0.55
     FORMS_SEMANTIC_WEIGHT: float = 0.45
     ORCHESTRATION_ALLOWED_TOOLS: list[str] = [
+        "contact_lookup",
         "forms_search",
         "semantic_forms_search",
         "relationship_lookup",
