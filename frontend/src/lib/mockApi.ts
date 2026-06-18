@@ -1,4 +1,5 @@
 import { FormSearchResponse, getFormFileUrl, QueryResponse, UserRole } from "@/lib/api";
+import { mockContactByIndex } from "@/lib/mockContacts";
 
 const MOCK_FORM_ID = "22222222-2222-4222-8222-222222222222";
 
@@ -47,13 +48,7 @@ const MOCK_RESPONSES: Array<{
       tool_used: "contact_lookup",
       confidence: 0.87,
       data: {
-        results: [
-          {
-            name: "Dr. Priya Nair",
-            role: "Department Chair",
-            department: "Computer Science",
-          },
-        ],
+        results: [mockContactByIndex(0)],
         count: 1,
       },
       status: "success",
@@ -61,6 +56,60 @@ const MOCK_RESPONSES: Array<{
         tool_name: "contact_lookup",
         confidence: 0.87,
         parameters: { department: "computer science", role: "chair" },
+        execution_time_ms: 10,
+        status: "success",
+        source: "mock",
+        last_updated: "2026-05-01",
+        request_id: "mock-request",
+        message: null,
+        role: "student",
+        authorized: true,
+        error_type: null,
+      },
+    },
+  },
+  {
+    keywords: ["registrar"],
+    response: {
+      answer: "Mock response: The Registrar Office can help with records and registration.",
+      tool_used: "contact_lookup",
+      confidence: 0.9,
+      data: {
+        results: [mockContactByIndex(1)],
+        count: 1,
+      },
+      status: "success",
+      trace: {
+        tool_name: "contact_lookup",
+        confidence: 0.9,
+        parameters: { query: "registrar" },
+        execution_time_ms: 10,
+        status: "success",
+        source: "mock",
+        last_updated: "2026-05-01",
+        request_id: "mock-request",
+        message: null,
+        role: "student",
+        authorized: true,
+        error_type: null,
+      },
+    },
+  },
+  {
+    keywords: ["financial aid", "finaid"],
+    response: {
+      answer: "Mock response: The Financial Aid Office can help with aid questions.",
+      tool_used: "contact_lookup",
+      confidence: 0.89,
+      data: {
+        results: [mockContactByIndex(2)],
+        count: 1,
+      },
+      status: "success",
+      trace: {
+        tool_name: "contact_lookup",
+        confidence: 0.89,
+        parameters: { query: "financial aid" },
         execution_time_ms: 10,
         status: "success",
         source: "mock",

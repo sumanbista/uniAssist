@@ -3,11 +3,14 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import {
+  extractContactResults,
   extractFormResults,
+  searchContacts,
   searchForms,
   sendQuery,
   UserRole,
 } from "@/lib/api";
+import { ContactResultsState } from "@/components/ContactSearchResults";
 import { FormResultsState } from "@/components/FormSearchResults";
 import { ChatMessage, MessageBubble } from "@/components/MessageBubble";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
@@ -57,6 +60,7 @@ export function Chat() {
     try {
       const response = await sendQuery(trimmedQuery, role);
       const formResults = await resolveFormResults(trimmedQuery, response);
+      const contactResults = await resolveContactResults(trimmedQuery, response);
       setMessages((currentMessages) => [
         ...currentMessages,
         {
@@ -68,6 +72,7 @@ export function Chat() {
           confidence: response.confidence,
           trace: response.trace,
           formResults,
+          contactResults,
         },
       ]);
     } catch {
@@ -208,10 +213,48 @@ async function resolveFormResults(
 }
 
 function shouldSearchForms(query: string, toolUsed: string | null): boolean {
+  if (toolUsed === "contact_lookup") {
+    return false;
+  }
   if (toolUsed?.includes("forms")) {
     return true;
   }
   return /\b(form|forms|pdf|application|appeal|registrar|withdrawal|add\/drop|registration)\b/i.test(
+    query,
+  );
+}
+
+async function resolveContactResults(
+  query: string,
+  response: Awaited<ReturnType<typeof sendQuery>>,
+): Promise<ContactResultsState | undefined> {
+  const embeddedContacts = extractContactResults(response.data);
+  if (embeddedContacts.length > 0) {
+    return { status: "success", contacts: embeddedContacts };
+  }
+
+  if (!shouldSearchContacts(query, response.tool_used)) {
+    return undefined;
+  }
+
+  try {
+    const searchResponse = await searchContacts(query, 5);
+    return searchResponse.contacts.length > 0
+      ? { status: "success", contacts: searchResponse.contacts }
+      : { status: "empty", contacts: [] };
+  } catch (error) {
+    if (error instanceof Error && error.message === "CONTACT_SEARCH_UNAUTHORIZED") {
+      return { status: "unauthorized", contacts: [] };
+    }
+    return { status: "error", contacts: [] };
+  }
+}
+
+function shouldSearchContacts(query: string, toolUsed: string | null): boolean {
+  if (toolUsed === "contact_lookup") {
+    return true;
+  }
+  return /\b(contact|contacts|email|phone|office|registrar|financial aid|dean|department chair|faculty|staff)\b/i.test(
     query,
   );
 }

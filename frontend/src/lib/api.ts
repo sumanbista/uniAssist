@@ -48,6 +48,29 @@ export type FormSearchResponse = {
   limit: number;
 };
 
+export type ContactResult = {
+  id: string;
+  name: string;
+  title: string | null;
+  department: string | null;
+  email: string | null;
+  phone: string | null;
+  office_location: string | null;
+  office_hours: string | null;
+  contact_type: string;
+  verification_status: string;
+  status: string;
+  source_url: string | null;
+  last_verified_at: string | null;
+};
+
+export type ContactSearchResponse = {
+  contacts: ContactResult[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type AnalyticsSummary = {
   total_queries: number;
   average_latency_ms: number;
@@ -172,6 +195,85 @@ export async function searchForms(
   }
 
   return validateFormSearchResponse(await response.json());
+}
+
+export async function searchContacts(
+  query: string,
+  limit = 5,
+): Promise<ContactSearchResponse> {
+  if (USE_MOCK_API) {
+    const { searchMockContacts } = await import("@/lib/mockContacts");
+    return searchMockContacts(query, limit);
+  }
+
+  const searchParams = new URLSearchParams({
+    q: query,
+    limit: String(limit),
+  });
+  const response = await fetch(`${API_BASE_URL}/contacts/search?${searchParams}`, {
+    headers: authHeaders(),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("CONTACT_SEARCH_UNAUTHORIZED");
+  }
+  if (!response.ok) {
+    throw new Error("CONTACT_SEARCH_UNAVAILABLE");
+  }
+
+  return validateContactSearchResponse(await response.json());
+}
+
+export async function getContacts(limit = 20, offset = 0): Promise<ContactSearchResponse> {
+  if (USE_MOCK_API) {
+    const { listMockContacts } = await import("@/lib/mockContacts");
+    return listMockContacts(limit, offset);
+  }
+
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const response = await fetch(`${API_BASE_URL}/contacts?${searchParams}`, {
+    headers: authHeaders(),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("CONTACTS_UNAUTHORIZED");
+  }
+  if (!response.ok) {
+    throw new Error("CONTACTS_UNAVAILABLE");
+  }
+
+  return validateContactSearchResponse(await response.json());
+}
+
+export async function getContact(contactId: string): Promise<ContactResult> {
+  if (!isUuidLike(contactId)) {
+    throw new Error("CONTACT_INVALID_ID");
+  }
+
+  if (USE_MOCK_API) {
+    const { getMockContact } = await import("@/lib/mockContacts");
+    return getMockContact(contactId);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/contacts/${encodeURIComponent(contactId)}`,
+    { headers: authHeaders() },
+  );
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("CONTACT_UNAUTHORIZED");
+  }
+  if (response.status === 404) {
+    throw new Error("CONTACT_NOT_FOUND");
+  }
+  if (!response.ok) {
+    throw new Error("CONTACT_UNAVAILABLE");
+  }
+
+  return validateContactResult(await response.json());
 }
 
 export async function uploadPdfForm(
@@ -308,6 +410,24 @@ export function extractFormResults(value: unknown): FormResult[] {
   return forms.map(normalizeFormResult).filter((form) => form !== null);
 }
 
+export function extractContactResults(value: unknown): ContactResult[] {
+  const containers = collectContactContainers(value);
+  const contacts = containers.flatMap((container) => {
+    if (Array.isArray(container)) {
+      return container;
+    }
+    if (isRecord(container) && Array.isArray(container.contacts)) {
+      return container.contacts;
+    }
+    if (isRecord(container) && Array.isArray(container.results)) {
+      return container.results;
+    }
+    return [];
+  });
+
+  return contacts.map(normalizeContactResult).filter((contact) => contact !== null);
+}
+
 async function fetchAnalytics<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: authHeaders(),
@@ -362,6 +482,39 @@ function validateFormSearchResponse(value: unknown): FormSearchResponse {
     query: typeof value.query === "string" ? value.query : "",
     limit: typeof value.limit === "number" ? value.limit : 0,
   };
+}
+
+function validateContactSearchResponse(value: unknown): ContactSearchResponse {
+  if (!isRecord(value) || !Array.isArray(value.contacts)) {
+    throw new Error("CONTACT_SEARCH_INVALID_RESPONSE");
+  }
+  return {
+    contacts: value.contacts.map((contact) =>
+      validateContactListItem(contact, "CONTACT_SEARCH_INVALID_RESPONSE"),
+    ),
+    total: typeof value.total === "number" ? value.total : 0,
+    limit: typeof value.limit === "number" ? value.limit : 0,
+    offset: typeof value.offset === "number" ? value.offset : 0,
+  };
+}
+
+function validateContactResult(value: unknown): ContactResult {
+  const contact = normalizeContactResult(value);
+  if (!contact) {
+    throw new Error("CONTACT_INVALID_RESPONSE");
+  }
+  return contact;
+}
+
+function validateContactListItem(
+  value: unknown,
+  errorMessage: string,
+): ContactResult {
+  const contact = normalizeContactResult(value);
+  if (!contact) {
+    throw new Error(errorMessage);
+  }
+  return contact;
 }
 
 function validatePdfFormUploadResponse(value: unknown): PdfFormUploadResponse {
@@ -492,6 +645,34 @@ function normalizeFormResult(value: unknown): FormResult | null {
   };
 }
 
+function normalizeContactResult(value: unknown): ContactResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const id = safeString(value.id);
+  const name = safeString(value.name);
+  const contactType = safeString(value.contact_type);
+  if (!id || !isUuidLike(id) || !name || !contactType) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    title: safeNullableString(value.title),
+    department: safeNullableString(value.department),
+    email: safeEmail(value.email),
+    phone: safeNullableString(value.phone),
+    office_location: safeNullableString(value.office_location),
+    office_hours: safeNullableString(value.office_hours),
+    contact_type: contactType,
+    verification_status: safeString(value.verification_status) ?? "unknown",
+    status: safeString(value.status) ?? "unknown",
+    source_url: safeHttpUrl(value.source_url),
+    last_verified_at: safeNullableString(value.last_verified_at),
+  };
+}
+
 function collectFormContainers(value: unknown): unknown[] {
   if (Array.isArray(value)) {
     return [value];
@@ -506,6 +687,28 @@ function collectFormContainers(value: unknown): unknown[] {
   }
   if (isRecord(value.results)) {
     Object.values(value.results).forEach((result) => containers.push(result));
+  }
+  return containers;
+}
+
+function collectContactContainers(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return [value];
+  }
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const containers: unknown[] = [value];
+  if (isRecord(value.data)) {
+    containers.push(value.data);
+  }
+  if (isRecord(value.results)) {
+    containers.push(value.results);
+    const contactLookup = value.results.contact_lookup;
+    if (Array.isArray(contactLookup)) {
+      containers.push(contactLookup);
+    }
   }
   return containers;
 }
@@ -539,6 +742,16 @@ function safeHttpUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+function safeEmail(value: unknown): string | null {
+  const candidate = safeString(value);
+  if (!candidate || candidate.length > 254 || /[\s<>]/.test(candidate)) {
+    return null;
+  }
+  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(candidate)
+    ? candidate
+    : null;
 }
 
 function isUuidLike(value: unknown): boolean {
