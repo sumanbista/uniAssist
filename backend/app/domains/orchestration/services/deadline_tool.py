@@ -65,6 +65,18 @@ class DeadlineQueryTool(OrchestrationTool):
                     offset=0,
                     deadline_type=deadline_type,
                 )
+        related_deadlines = await self._prior_related_deadlines(
+            university_id=university_id,
+            role=role,
+            prior_results=prior_results,
+        )
+        existing_ids = {deadline.id for deadline in deadlines}
+        for deadline in related_deadlines:
+            if deadline.id in existing_ids:
+                continue
+            deadlines.append(deadline)
+            existing_ids.add(deadline.id)
+        total = max(total, len(deadlines))
         data = [deadline_to_dict(deadline) for deadline in deadlines]
         return ToolExecutionResult(
             step_id=step.step_id,
@@ -85,6 +97,37 @@ class DeadlineQueryTool(OrchestrationTool):
             latency_ms=max(0, round((time.perf_counter() - started_at) * 1000)),
             confidence_score=1.0 if data else 0.0,
         )
+
+    async def _prior_related_deadlines(
+        self,
+        university_id: UUID,
+        role: UserRole,
+        prior_results: list[ToolExecutionResult],
+    ) -> list[Any]:
+        """Fetch visible deadline nodes discovered by earlier traversal steps."""
+
+        deadlines = []
+        seen: set[UUID] = set()
+        for result in prior_results:
+            for item in result.data:
+                if item.get("entity_type") != "deadline":
+                    continue
+                raw_id = item.get("entity_id")
+                if raw_id is None:
+                    continue
+                deadline_id = UUID(str(raw_id))
+                if deadline_id in seen:
+                    continue
+                deadline = await self.service.retrieve_deadline(
+                    university_id=university_id,
+                    deadline_id=deadline_id,
+                    role=role,
+                )
+                if deadline is None:
+                    continue
+                seen.add(deadline_id)
+                deadlines.append(deadline)
+        return deadlines
 
 
 def _validated_query(params: dict[str, Any]) -> str:

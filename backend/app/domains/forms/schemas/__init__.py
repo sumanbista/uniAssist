@@ -10,6 +10,7 @@ from app.domains.forms.schemas.form import (
     FormSearchResult,
     FormVerifyRequest,
     FormVerificationResponse,
+    RelatedDeadlineSummary,
     RelatedEntitySummary,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "FormSearchResult",
     "FormVerifyRequest",
     "FormVerificationResponse",
+    "RelatedDeadlineSummary",
     "RelatedEntitySummary",
 ]

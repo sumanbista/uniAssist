@@ -17,8 +17,13 @@ from app.domains.deadlines.schemas import (
     DeadlineListResponse,
     DeadlineResponse,
     DeadlineType,
+    RelatedFormSummary,
 )
 from app.domains.deadlines.services import DeadlineService
+from app.domains.deadlines.services.deadline_service import InvalidRelatedFormError
+from app.domains.forms.repositories import FormsRepository
+from app.domains.relationships.repositories import RelationshipsRepository
+from app.domains.relationships.services import RelationshipsService
 from app.shared.auth import get_current_user, require_any_role
 from app.shared.database.session import get_db_session
 from app.shared.events import EventBus, EventContext, EventStore
@@ -37,9 +42,15 @@ def get_deadline_service(
 ) -> DeadlineService:
     """Build a Deadline service for a request."""
 
+    event_bus = EventBus(EventStore(session))
     return DeadlineService(
         repository=DeadlineRepository(session),
-        event_bus=EventBus(EventStore(session)),
+        forms_repository=FormsRepository(session),
+        relationships_service=RelationshipsService(
+            RelationshipsRepository(session),
+            event_bus=event_bus,
+        ),
+        event_bus=event_bus,
     )
 
 
@@ -65,7 +76,14 @@ async def list_deadlines(
         deadline_type=deadline_type,
     )
     return DeadlineListResponse(
-        deadlines=[_deadline_to_response(deadline) for deadline in deadlines],
+        deadlines=[
+            await _deadline_to_response(
+                service=service,
+                university_id=current_user.university_id,
+                deadline=deadline,
+            )
+            for deadline in deadlines
+        ],
         total=total,
         limit=limit,
         offset=offset,
@@ -88,7 +106,14 @@ async def upcoming_deadlines(
         limit=limit,
     )
     return DeadlineListResponse(
-        deadlines=[_deadline_to_response(deadline) for deadline in deadlines],
+        deadlines=[
+            await _deadline_to_response(
+                service=service,
+                university_id=current_user.university_id,
+                deadline=deadline,
+            )
+            for deadline in deadlines
+        ],
         total=len(deadlines),
         limit=limit,
         offset=0,
@@ -121,7 +146,14 @@ async def search_deadlines(
             detail=str(exc),
         ) from exc
     return DeadlineListResponse(
-        deadlines=[_deadline_to_response(deadline) for deadline in deadlines],
+        deadlines=[
+            await _deadline_to_response(
+                service=service,
+                university_id=current_user.university_id,
+                deadline=deadline,
+            )
+            for deadline in deadlines
+        ],
         total=total,
         limit=limit,
         offset=offset,
@@ -146,7 +178,11 @@ async def get_deadline(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Deadline not found",
         )
-    return _deadline_to_response(deadline)
+    return await _deadline_to_response(
+        service=service,
+        university_id=current_user.university_id,
+        deadline=deadline,
+    )
 
 
 @router.post("", response_model=DeadlineResponse, status_code=status.HTTP_201_CREATED)
@@ -163,23 +199,41 @@ async def create_deadline(
         current_user.user_id,
         current_user.university_id,
     )
-    deadline = await service.create_deadline(
-        deadline_data=deadline_data.model_copy(
-            update={"university_id": current_user.university_id}
-        ),
-        university_id=current_user.university_id,
-        actor_id=current_user.user_id,
-        event_context=EventContext(
+    try:
+        deadline = await service.create_deadline(
+            deadline_data=deadline_data.model_copy(
+                update={"university_id": current_user.university_id}
+            ),
+            university_id=current_user.university_id,
             actor_id=current_user.user_id,
-            correlation_id=correlation_id,
-        ),
+            event_context=EventContext(
+                actor_id=current_user.user_id,
+                correlation_id=correlation_id,
+            ),
+        )
+    except InvalidRelatedFormError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Related form cannot be linked",
+        ) from exc
+    return await _deadline_to_response(
+        service=service,
+        university_id=current_user.university_id,
+        deadline=deadline,
     )
-    return _deadline_to_response(deadline)
 
 
-def _deadline_to_response(deadline: Deadline) -> DeadlineResponse:
+async def _deadline_to_response(
+    service: DeadlineService,
+    university_id: UUID,
+    deadline: Deadline,
+) -> DeadlineResponse:
     """Convert an ORM deadline to an API response without leaking internals."""
 
+    related_form: RelatedFormSummary | None = await service.related_form_summary(
+        university_id=university_id,
+        deadline=deadline,
+    )
     return DeadlineResponse(
         id=deadline.id,
         university_id=deadline.university_id,
@@ -191,6 +245,7 @@ def _deadline_to_response(deadline: Deadline) -> DeadlineResponse:
         due_date=deadline.due_date,
         source_url=deadline.source_url,
         related_form_id=deadline.related_form_id,
+        related_form=related_form,
         verification_status=deadline.verification_status,
         status=deadline.status,
         last_verified_at=deadline.last_verified_at,

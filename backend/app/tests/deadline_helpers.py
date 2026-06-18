@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 from app.domains.auth.models.roles import UserRole
 from app.domains.auth.schemas import AuthenticatedUser
 from app.domains.deadlines.models import Deadline
+from app.domains.deadlines.schemas import RelatedFormSummary
 from app.domains.deadlines.services import DeadlineService
 from app.shared.events import PlatformEvent
 
@@ -167,6 +168,7 @@ class FakeRouteDeadlineService:
         self.store = store
         self.create_calls: list[tuple[UUID, UUID]] = []
         self.list_university_ids: list[UUID] = []
+        self.related_forms: dict[UUID, RelatedFormSummary] = {}
 
     async def create_deadline(self, deadline_data, university_id, actor_id, event_context):
         """Create a deadline and emit a matching event."""
@@ -226,6 +228,13 @@ class FakeRouteDeadlineService:
 
         service = DeadlineService(FakeDeadlineRepository(self.deadlines))
         return await service.retrieve_deadline(**kwargs)
+
+    async def related_form_summary(self, university_id, deadline):
+        """Return a configured safe related form summary."""
+
+        if deadline.related_form_id is None:
+            return None
+        return self.related_forms.get(deadline.related_form_id)
 
 
 def deadline_record(**overrides) -> Deadline:

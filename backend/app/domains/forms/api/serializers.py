@@ -8,6 +8,7 @@ from app.domains.forms.schemas import (
     FormResponse,
     FormSearchResult,
     FormVerificationResponse,
+    RelatedDeadlineSummary,
     RelatedEntitySummary,
 )
 from app.domains.relationships.models import EntityRelationship
@@ -16,6 +17,7 @@ from app.domains.relationships.models import EntityRelationship
 def form_to_response(
     form: Form,
     related_entities: list[RelatedEntitySummary] | None = None,
+    related_deadlines: list[RelatedDeadlineSummary] | None = None,
 ) -> FormResponse:
     """Convert a Form ORM model into an API response schema."""
 
@@ -42,12 +44,16 @@ def form_to_response(
         status=form.status,
         metadata=form.metadata_,
         related_entities=related_entities or [],
+        related_deadlines=related_deadlines or [],
         created_at=form.created_at,
         updated_at=form.updated_at,
     )
 
 
-def retrieved_form_to_response(form: RetrievedForm) -> FormSearchResult:
+def retrieved_form_to_response(
+    form: RetrievedForm,
+    related_deadlines: list[RelatedDeadlineSummary] | None = None,
+) -> FormSearchResult:
     """Convert a retrieved form into a search response schema."""
 
     return FormSearchResult(
@@ -65,6 +71,7 @@ def retrieved_form_to_response(form: RetrievedForm) -> FormSearchResult:
         staleness_score=form.staleness_score,
         status=form.status,
         metadata=form.metadata,
+        related_deadlines=related_deadlines or [],
         ranking_score=form.ranking_score,
         ranking_signals=form.ranking_signals,
         similarity_score=form.similarity_score,

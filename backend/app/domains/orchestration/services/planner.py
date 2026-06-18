@@ -88,12 +88,22 @@ class RetrievalPlanner:
             "tuition",
             "financial aid",
         )
-        if any(keyword in normalized_query for keyword in deadline_keywords):
+        form_keywords = ("form", "application", "request")
+        has_deadline = any(keyword in normalized_query for keyword in deadline_keywords)
+        has_form = any(keyword in normalized_query for keyword in form_keywords)
+        if has_deadline and has_form:
+            return [
+                OrchestrationToolName.FORMS_SEARCH,
+                OrchestrationToolName.RELATIONSHIP_LOOKUP,
+                OrchestrationToolName.DEADLINE_QUERY,
+                OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
+            ]
+        if has_deadline:
             return [
                 OrchestrationToolName.DEADLINE_QUERY,
                 OrchestrationToolName.FORMS_SEARCH,
-                OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
                 OrchestrationToolName.RELATIONSHIP_LOOKUP,
+                OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
             ]
         if any(keyword in normalized_query for keyword in calendar_keywords):
             return [

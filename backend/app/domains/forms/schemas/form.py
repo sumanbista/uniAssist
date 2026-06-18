@@ -1,6 +1,6 @@
 """API schemas for the Forms domain."""
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -90,6 +90,17 @@ class RelatedEntitySummary(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class RelatedDeadlineSummary(BaseModel):
+    """Safe related deadline summary for Forms responses."""
+
+    deadline_id: UUID
+    title: str
+    deadline_type: str
+    due_date: date
+    status: str
+    verification_status: str
+
+
 class FormResponse(BaseModel):
     """Canonical form response."""
 
@@ -113,6 +124,7 @@ class FormResponse(BaseModel):
     status: str
     metadata: dict[str, Any] = Field(default_factory=dict)
     related_entities: list[RelatedEntitySummary] = Field(default_factory=list)
+    related_deadlines: list[RelatedDeadlineSummary] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -143,6 +155,7 @@ class FormSearchResult(BaseModel):
     staleness_score: float | None = None
     status: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+    related_deadlines: list[RelatedDeadlineSummary] = Field(default_factory=list)
     ranking_score: float
     ranking_signals: dict[str, float] = Field(default_factory=dict)
     similarity_score: float | None = None

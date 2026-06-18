@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.domains.deadlines.repositories import DeadlineRepository
 from app.domains.forms.repositories import FormsRepository
 from app.domains.relationships.enums import RelationshipType
 from app.domains.relationships.services import RelationshipsService
@@ -45,9 +46,11 @@ class RelationshipTraversalService:
         self,
         relationships_service: RelationshipsService,
         forms_repository: FormsRepository,
+        deadlines_repository: DeadlineRepository | None = None,
     ) -> None:
         self.relationships_service = relationships_service
         self.forms_repository = forms_repository
+        self.deadlines_repository = deadlines_repository
 
     async def traverse_related_entities(
         self,
@@ -204,6 +207,8 @@ class RelationshipTraversalService:
     ) -> bool:
         """Apply tenant and governance filtering for supported entities."""
 
+        if entity_type == "deadline":
+            return await self._can_visit_deadline(entity_id, university_id)
         if entity_type != "form":
             return True
         form = await self.forms_repository.get_form_by_id(
@@ -216,6 +221,28 @@ class RelationshipTraversalService:
             form.status not in self.forms_repository.EXCLUDED_RETRIEVAL_STATUSES
             and form.verification_status not in {"rejected", "archived"}
         )
+
+    async def _can_visit_deadline(
+        self,
+        deadline_id: UUID,
+        university_id: UUID,
+    ) -> bool:
+        """Apply tenant and governance filtering for deadline nodes."""
+
+        if self.deadlines_repository is None:
+            return True
+        deadline = await self.deadlines_repository.get_deadline_by_id(
+            university_id=university_id,
+            deadline_id=deadline_id,
+            visible_statuses=("pending_review", "stale", "verified", "published"),
+            visible_verification_statuses=(
+                "pending_review",
+                "stale",
+                "verified",
+                "published",
+            ),
+        )
+        return deadline is not None
 
 
 def _allowed_relationship_types(

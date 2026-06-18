@@ -47,6 +47,32 @@ class RelationshipsService:
         )
         return relationship
 
+    async def upsert_relationship(
+        self,
+        relationship_data: RelationshipCreate,
+        university_id: UUID | None = None,
+        event_context: EventContext | None = None,
+        event_type: str = "relationships.created",
+    ) -> EntityRelationship | None:
+        """Create a relationship if absent, returning None for duplicates."""
+
+        await self._run_validation_hooks(relationship_data)
+        existing_relationships = await self.repository.get_relationships_for_entity(
+            relationship_data.source_entity_type,
+            relationship_data.source_entity_id,
+        )
+        for relationship in existing_relationships:
+            if self._is_duplicate(relationship, relationship_data):
+                return None
+        relationship = await self.repository.create_relationship(relationship_data)
+        await self._emit_relationship_created(
+            relationship=relationship,
+            university_id=university_id,
+            event_context=event_context,
+            event_type=event_type,
+        )
+        return relationship
+
     async def retrieve_related_entities(
         self,
         entity_type: str,
@@ -84,13 +110,14 @@ class RelationshipsService:
         relationship: EntityRelationship,
         university_id: UUID | None,
         event_context: EventContext | None = None,
+        event_type: str = "relationships.created",
     ) -> None:
         """Emit an audit-ready relationship mutation event when scoped."""
 
         if self.event_bus is None or university_id is None:
             return
         await self.event_bus.emit_event(
-            event_type="relationships.created",
+            event_type=event_type,
             aggregate_type="relationship",
             aggregate_id=relationship.id,
             university_id=university_id,

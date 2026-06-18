@@ -103,6 +103,7 @@ class DeadlineResponse(BaseModel):
     due_date: date
     source_url: str | None = None
     related_form_id: UUID | None = None
+    related_form: "RelatedFormSummary | None" = None
     verification_status: str
     status: str
     last_verified_at: datetime | None = None
@@ -118,3 +119,13 @@ class DeadlineListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class RelatedFormSummary(BaseModel):
+    """Safe related form summary for Deadline responses."""
+
+    form_id: UUID
+    title: str
+    category: str | None = None
+    status: str
+    verification_status: str

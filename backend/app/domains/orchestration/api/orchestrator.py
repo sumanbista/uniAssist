@@ -47,6 +47,7 @@ def get_retrieval_orchestrator(
     traversal_service = RelationshipTraversalService(
         relationships_service=relationships_service,
         forms_repository=FormsRepository(session),
+        deadlines_repository=DeadlineRepository(session),
     )
     registry = ToolRegistry()
     registry.register(FormsSearchTool(forms_service))

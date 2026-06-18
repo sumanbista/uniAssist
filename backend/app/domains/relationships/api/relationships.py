@@ -25,6 +25,7 @@ from app.domains.relationships.traversal import (
     TraversalRequest,
     TraversalResult,
 )
+from app.domains.deadlines.repositories import DeadlineRepository
 from app.domains.forms.repositories import FormsRepository
 from app.shared.auth import get_current_user, require_any_role
 from app.shared.database.session import get_db_session
@@ -57,6 +58,7 @@ def get_relationship_traversal_service(
     return RelationshipTraversalService(
         relationships_service=RelationshipsService(RelationshipsRepository(session)),
         forms_repository=FormsRepository(session),
+        deadlines_repository=DeadlineRepository(session),
     )
 
 

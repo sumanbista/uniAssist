@@ -8,7 +8,14 @@ from app.core.logging import get_logger
 from app.domains.auth.models.roles import UserRole
 from app.domains.deadlines.models import Deadline
 from app.domains.deadlines.repositories import DeadlineRepository
-from app.domains.deadlines.schemas import DeadlineCreate, DeadlineType
+from app.domains.deadlines.schemas import DeadlineCreate, DeadlineType, RelatedFormSummary
+from app.domains.deadlines.services.relationship_integration import (
+    DeadlineRelationshipIntegration,
+    InvalidRelatedFormError,
+)
+from app.domains.forms.repositories import FormsRepository
+from app.domains.forms.schemas import RelatedDeadlineSummary
+from app.domains.relationships.services import RelationshipsService
 from app.shared.events import EventBus, EventContext
 
 logger = get_logger(__name__)
@@ -23,9 +30,16 @@ class DeadlineService:
     def __init__(
         self,
         repository: DeadlineRepository,
+        forms_repository: FormsRepository | None = None,
+        relationships_service: RelationshipsService | None = None,
         event_bus: EventBus | None = None,
     ) -> None:
         self.repository = repository
+        self.relationships = DeadlineRelationshipIntegration(
+            forms_repository=forms_repository,
+            relationships_service=relationships_service,
+            fetch_deadline=self.retrieve_deadline,
+        )
         self.event_bus = event_bus
 
     async def create_deadline(
@@ -38,6 +52,11 @@ class DeadlineService:
         """Create a tenant-scoped deadline and emit an audit event."""
 
         deadline_type = _normalize_deadline_type(deadline_data.deadline_type)
+        if deadline_data.related_form_id is not None:
+            await self.relationships.validate_related_form(
+                university_id=university_id,
+                form_id=deadline_data.related_form_id,
+            )
         deadline = Deadline(
             university_id=university_id,
             title=deadline_data.title,
@@ -54,6 +73,12 @@ class DeadlineService:
             metadata_=deadline_data.metadata,
         )
         created_deadline = await self.repository.create_deadline(deadline)
+        if created_deadline.related_form_id is not None:
+            await self.relationships.upsert_deadline_relationship(
+                deadline=created_deadline,
+                university_id=university_id,
+                event_context=event_context,
+            )
         logger.info(
             "deadline_created actor_id=%s university_id=%s deadline_id=%s",
             actor_id,
@@ -78,6 +103,32 @@ class DeadlineService:
                 },
             )
         return created_deadline
+
+    async def related_form_summary(
+        self,
+        university_id: UUID,
+        deadline: Deadline,
+    ) -> RelatedFormSummary | None:
+        """Return a safe related form summary for a deadline."""
+
+        return await self.relationships.related_form_summary(
+            university_id=university_id,
+            deadline=deadline,
+        )
+
+    async def related_deadline_summaries_for_form(
+        self,
+        university_id: UUID,
+        form_id: UUID,
+        role: UserRole,
+    ) -> list[RelatedDeadlineSummary]:
+        """Return visible related deadline summaries for a form."""
+
+        return await self.relationships.related_deadline_summaries_for_form(
+            university_id=university_id,
+            form_id=form_id,
+            role=role,
+        )
 
     async def retrieve_deadline(
         self,
@@ -171,7 +222,6 @@ class DeadlineService:
         if role in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN, UserRole.SUPER_ADMIN}:
             return ADMIN_VISIBLE_STATUSES
         return PUBLIC_VISIBLE_STATUSES
-
 
 def _normalize_deadline_type(deadline_type: DeadlineType | str) -> str:
     """Normalize deadline type enum values."""

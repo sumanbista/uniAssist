@@ -5,6 +5,7 @@ from app.domains.deadlines.schemas.deadline import (
     DeadlineListResponse,
     DeadlineResponse,
     DeadlineType,
+    RelatedFormSummary,
 )
 
 __all__ = [
@@ -12,5 +13,5 @@ __all__ = [
     "DeadlineListResponse",
     "DeadlineResponse",
     "DeadlineType",
+    "RelatedFormSummary",
 ]
-
