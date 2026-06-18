@@ -36,6 +36,7 @@ class FakeDeadlineRepository:
 
         now = datetime.now(UTC)
         deadline.id = deadline.id or uuid4()
+        deadline.is_active = True if deadline.is_active is None else deadline.is_active
         deadline.created_at = now
         deadline.updated_at = now
         self.deadlines.append(deadline)

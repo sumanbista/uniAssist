@@ -1,5 +1,6 @@
 """Tests for bounded relationship traversal foundations."""
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -13,7 +14,10 @@ from app.domains.orchestration.schemas import (
     ToolExecutionResult,
 )
 from app.domains.orchestration.services.tools import RelationshipLookupTool
-from app.domains.relationships.api.relationships import get_relationship_traversal_service
+from app.domains.relationships.api.relationships import (
+    get_relationship_traversal_service,
+    get_relationships_service,
+)
 from app.domains.relationships.enums import RelationshipType
 from app.domains.relationships.traversal import (
     RelationshipTraversalService,
@@ -187,6 +191,52 @@ def test_relationship_traverse_endpoint_contract() -> None:
     assert body["metadata"]["node_count"] == 2
     assert body["trace"]["traversed_edges"][0]["relationship_type"] == "deadline_for"
     assert body["related_entities"][0]["entity_id"] == str(target_id)
+
+
+def test_relationship_lookup_endpoint_requires_auth_and_filters_by_traversal() -> None:
+    """One-hop relationship lookup should use authenticated traversal visibility."""
+
+    university_id = uuid4()
+    root_id = uuid4()
+    target_id = uuid4()
+    hidden_id = uuid4()
+    visible_relationship = relationship(root_id, target_id, RelationshipType.DEADLINE_FOR)
+    hidden_relationship = relationship(root_id, hidden_id, RelationshipType.RELATED_TO)
+    for row in (visible_relationship, hidden_relationship):
+        row.created_at = row.updated_at = datetime.now(UTC)
+        row.source_reference_id = None
+
+    async def override_current_user() -> AuthenticatedUser:
+        return AuthenticatedUser(
+            user_id=uuid4(),
+            university_id=university_id,
+            role=UserRole.STUDENT,
+        )
+
+    app.dependency_overrides[get_current_user] = override_current_user
+    app.dependency_overrides[get_relationships_service] = lambda: FakeRelationshipsService(
+        [visible_relationship, hidden_relationship]
+    )
+    app.dependency_overrides[get_relationship_traversal_service] = lambda: traversal_service(
+        university_id=university_id,
+        root_id=root_id,
+        extra_form_ids=[target_id],
+        relationships=[visible_relationship],
+    )
+    client = TestClient(app)
+
+    app.dependency_overrides.pop(get_current_user)
+    assert client.get(f"/relationships/form/{root_id}").status_code == 401
+    app.dependency_overrides[get_current_user] = override_current_user
+
+    response = client.get(f"/relationships/form/{root_id}")
+    app.dependency_overrides.clear()
+
+    body = response.json()
+    assert response.status_code == 200
+    assert [item["target_entity_id"] for item in body["relationships"]] == [
+        str(target_id)
+    ]
 
 
 @pytest.mark.anyio

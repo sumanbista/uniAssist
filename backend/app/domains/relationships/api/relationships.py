@@ -98,14 +98,39 @@ async def create_relationship(
 async def get_relationships_for_entity(
     entity_type: str,
     entity_id: UUID,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[RelationshipsService, Depends(get_relationships_service)],
+    traversal_service: Annotated[
+        RelationshipTraversalService,
+        Depends(get_relationship_traversal_service),
+    ],
 ) -> RelationshipListResponse:
     """Retrieve deterministic one-hop relationships for an entity."""
 
+    traversal = await traversal_service.traverse_related_entities(
+        request=TraversalRequest(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            max_hops=1,
+        ),
+        university_id=current_user.university_id,
+    )
+    visible_edges = {
+        (
+            edge.source_entity_type,
+            edge.source_entity_id,
+            edge.target_entity_type,
+            edge.target_entity_id,
+            edge.relationship_type.value,
+        )
+        for edge in traversal.trace.traversed_edges
+    }
     relationships = await service.retrieve_related_entities(entity_type, entity_id)
     return RelationshipListResponse(
         relationships=[
-            _relationship_to_response(relationship) for relationship in relationships
+            _relationship_to_response(relationship)
+            for relationship in relationships
+            if _relationship_edge_key(relationship) in visible_edges
         ],
         entity_type=entity_type.strip().lower(),
         entity_id=entity_id,
@@ -149,4 +174,16 @@ def _relationship_to_response(
         metadata=relationship.metadata_,
         created_at=relationship.created_at,
         updated_at=relationship.updated_at,
+    )
+
+
+def _relationship_edge_key(relationship: EntityRelationship) -> tuple:
+    """Return a comparable edge key for traversal-filtered relationships."""
+
+    return (
+        relationship.source_entity_type,
+        relationship.source_entity_id,
+        relationship.target_entity_type,
+        relationship.target_entity_id,
+        relationship.relationship_type,
     )

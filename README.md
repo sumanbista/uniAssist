@@ -54,6 +54,10 @@ UniAssist now includes a governed Forms workflow for admin-managed PDF forms:
 - Students can search approved, verified forms.
 - Verified PDFs open through a secure `Open Form PDF` path, so students do not need raw storage paths.
 - Rejected, archived, and deprecated forms stay hidden from search and blocked from PDF access.
+- Governed deadlines can be linked to forms, creating `deadline_for` workflow relationships.
+- Form search can include visible related deadline summaries with `include_deadlines=true`.
+- Deadline responses include a safe related form summary when a deadline is linked to a form.
+- Mixed orchestration queries such as `withdrawal form deadline` can retrieve forms, traverse relationships, and return related deadline context.
 
 ## Tech Stack
 
@@ -75,11 +79,13 @@ backend/
       retrieval/         # current router, tools, schemas, response formatting
       auth/              # roles and tool authorization guard
       analytics/         # analytics aggregation service
+      calendar/          # governed academic calendar records and calendar_query tool
+      deadlines/         # governed deadlines and deadline_query tool
       forms/             # governed institutional forms, search, and PDF access
       documents/         # placeholder future domain
-      relationships/     # placeholder future domain
+      relationships/     # bounded entity traversal and workflow relationships
       ingestion/         # ingestion routes, including PDF form upload
-      orchestration/     # placeholder future domain
+      orchestration/     # deterministic multi-tool retrieval orchestration
       governance/        # human review queue and approval decisions
     shared/
       observability/     # SQLite query logging infrastructure
@@ -197,8 +203,41 @@ POST /ingestion/forms/pdf
 GET /governance/reviews/pending
 POST /governance/reviews/decision
 GET /forms/search?q=
+GET /forms/search?q=&include_deadlines=true
 GET /forms/{form_id}/file
 ```
+
+Governed Calendar APIs:
+
+```text
+GET /calendar
+GET /calendar/search?q=
+GET /calendar/upcoming
+GET /calendar/{entry_id}
+POST /calendar
+```
+
+Governed Deadline APIs:
+
+```text
+GET /deadlines
+GET /deadlines/search?q=
+GET /deadlines/upcoming
+GET /deadlines/{deadline_id}
+POST /deadlines
+```
+
+Workflow relationship and orchestration APIs:
+
+```text
+POST /relationships/traverse
+POST /orchestrator/query
+```
+
+All governed Calendar and Deadline read endpoints are tenant-scoped from the
+authenticated JWT. Student and faculty reads return only verified or published
+records. Admin-class users may also inspect pending review and stale records.
+Rejected, archived, and deprecated records stay hidden.
 
 Unauthenticated or non-admin analytics requests return an auth error:
 
@@ -213,6 +252,8 @@ Unauthenticated or non-admin analytics requests return an auth error:
 - Student-facing PDF access uses `GET /forms/{form_id}/file`; students do not receive or need raw `storage_path` values.
 - PDF uploads validate content type, `.pdf` extension, file size, and PDF magic bytes before ingestion.
 - Rejected, archived, and deprecated forms are excluded from retrieval and blocked from PDF file access.
+- Deadline `related_form_id` links are validated against the JWT tenant and cannot reference cross-tenant, rejected, archived, or deprecated forms.
+- Enriched Form and Deadline responses expose safe summaries only; raw form `storage_path` values are not returned.
 
 ## Demo Flow
 
