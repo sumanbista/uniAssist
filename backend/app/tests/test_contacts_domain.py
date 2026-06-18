@@ -366,12 +366,34 @@ def test_student_sees_verified_and_published_only() -> None:
     }
 
 
-def test_admin_sees_pending_review() -> None:
-    """Admin-class users should see pending review contacts."""
+def test_faculty_sees_verified_and_published_only() -> None:
+    """Faculty read endpoints should use the same public visibility as students."""
+
+    university_id = uuid4()
+    rows = [
+        contact(university_id=university_id, name="Verified Registrar", status="verified", verification_status="verified"),
+        contact(university_id=university_id, name="Published Aid", status="published", verification_status="published"),
+        contact(university_id=university_id, name="Stale Office", status="stale", verification_status="stale"),
+    ]
+    app.dependency_overrides[get_current_user] = override_user(user(UserRole.FACULTY, university_id))
+    app.dependency_overrides[get_contacts_service] = lambda: RecordingContactsService(rows)
+
+    response = TestClient(app).get("/contacts")
+
+    assert response.status_code == 200
+    assert {row["name"] for row in response.json()["contacts"]} == {
+        "Verified Registrar",
+        "Published Aid",
+    }
+
+
+def test_admin_class_users_see_pending_review_and_stale() -> None:
+    """Admin-class users should see pending review and stale contacts."""
 
     university_id = uuid4()
     rows = [
         contact(university_id=university_id, name="Pending Dean", status="pending_review", verification_status="pending_review"),
+        contact(university_id=university_id, name="Stale Aid", status="stale", verification_status="stale"),
     ]
     app.dependency_overrides[get_current_user] = override_user(user(UserRole.UNIVERSITY_ADMIN, university_id))
     app.dependency_overrides[get_contacts_service] = lambda: RecordingContactsService(rows)
@@ -379,7 +401,28 @@ def test_admin_sees_pending_review() -> None:
     response = TestClient(app).get("/contacts")
 
     assert response.status_code == 200
-    assert [row["name"] for row in response.json()["contacts"]] == ["Pending Dean"]
+    assert {row["name"] for row in response.json()["contacts"]} == {
+        "Pending Dean",
+        "Stale Aid",
+    }
+
+
+def test_rejected_archived_and_deprecated_contacts_are_hidden() -> None:
+    """Terminal governance states should not be returned to any caller."""
+
+    university_id = uuid4()
+    rows = [
+        contact(university_id=university_id, name="Rejected Office", status="rejected", verification_status="rejected"),
+        contact(university_id=university_id, name="Archived Office", status="archived", verification_status="archived"),
+        contact(university_id=university_id, name="Deprecated Office", status="deprecated", verification_status="deprecated"),
+    ]
+    app.dependency_overrides[get_current_user] = override_user(user(UserRole.SUPER_ADMIN, university_id))
+    app.dependency_overrides[get_contacts_service] = lambda: RecordingContactsService(rows)
+
+    response = TestClient(app).get("/contacts")
+
+    assert response.status_code == 200
+    assert response.json()["contacts"] == []
 
 
 def test_search_by_name_department_and_contact_type() -> None:
@@ -401,6 +444,49 @@ def test_search_by_name_department_and_contact_type() -> None:
     assert [row["name"] for row in name_response.json()["contacts"]] == ["Ada Lovelace"]
     assert [row["name"] for row in department_response.json()["contacts"]] == ["Ada Lovelace"]
     assert [row["name"] for row in type_response.json()["contacts"]] == ["Financial Aid"]
+
+
+def test_get_contact_returns_visible_contact_and_hides_nonvisible_contact() -> None:
+    """GET /contacts/{id} should return only visible tenant-scoped contacts."""
+
+    university_id = uuid4()
+    visible_contact = contact(university_id=university_id, name="Visible Registrar")
+    hidden_contact = contact(
+        university_id=university_id,
+        name="Rejected Registrar",
+        status="rejected",
+        verification_status="rejected",
+    )
+    app.dependency_overrides[get_current_user] = override_user(user(UserRole.STUDENT, university_id))
+    app.dependency_overrides[get_contacts_service] = lambda: RecordingContactsService(
+        [visible_contact, hidden_contact]
+    )
+    client = TestClient(app)
+
+    visible_response = client.get(f"/contacts/{visible_contact.id}")
+    hidden_response = client.get(f"/contacts/{hidden_contact.id}")
+
+    assert visible_response.status_code == 200
+    assert visible_response.json()["name"] == "Visible Registrar"
+    assert hidden_response.status_code == 404
+
+
+def test_contact_responses_do_not_expose_internal_fields() -> None:
+    """Contacts responses should not leak ORM-only internal fields."""
+
+    university_id = uuid4()
+    app.dependency_overrides[get_current_user] = override_user(user(UserRole.STUDENT, university_id))
+    app.dependency_overrides[get_contacts_service] = lambda: RecordingContactsService(
+        [contact(university_id=university_id)]
+    )
+
+    response = TestClient(app).get("/contacts")
+
+    assert response.status_code == 200
+    payload = response.json()["contacts"][0]
+    assert "metadata_" not in payload
+    assert "is_active" not in payload
+    assert "storage_path" not in payload
 
 
 @pytest.mark.anyio
@@ -479,6 +565,50 @@ async def test_contact_lookup_tool_is_repository_backed_and_traceable() -> None:
     assert result.metadata["trace"]["university_id"] == str(university_id)
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("query", "expected_name"),
+    [
+        ("Who is the registrar?", "Registrar Office"),
+        ("Contact financial aid.", "Financial Aid"),
+        ("CS department phone number.", "CS Department"),
+        ("Dean of students office.", "Dean of Students Office"),
+    ],
+)
+async def test_contact_lookup_tool_handles_natural_language_examples(
+    query: str,
+    expected_name: str,
+) -> None:
+    """The contact_lookup tool should resolve documented natural-language examples."""
+
+    university_id = uuid4()
+    service = ContactsService(
+        FakeContactsRepository(
+            [
+                contact(university_id=university_id, name="Registrar Office"),
+                contact(university_id=university_id, name="Financial Aid", department="Financial Aid"),
+                contact(university_id=university_id, name="CS Department", department="Computer Science"),
+                contact(university_id=university_id, name="Dean of Students Office", title="Dean of Students"),
+            ]
+        )
+    )
+    tool = ContactLookupTool(service)
+
+    result = await tool.run(
+        step=ExecutionStep(
+            step_id=1,
+            tool_name=OrchestrationToolName.CONTACT_LOOKUP,
+            params={"query": query, "limit": 5},
+            timeout_seconds=5,
+        ),
+        university_id=university_id,
+        prior_results=[],
+        role=UserRole.STUDENT,
+    )
+
+    assert expected_name in {row["name"] for row in result.data}
+
+
 def test_contacts_tenant_comes_from_jwt_and_spoofed_headers_are_ignored() -> None:
     """Contacts routes should derive tenant from JWT, not client-supplied headers."""
 
@@ -498,3 +628,18 @@ def test_contacts_tenant_comes_from_jwt_and_spoofed_headers_are_ignored() -> Non
     assert response.status_code == 200
     assert service.list_university_ids == [jwt_university_id]
     assert service.list_university_ids != [spoofed_university_id]
+
+
+def test_contacts_read_endpoints_require_auth_and_return_safe_errors() -> None:
+    """Contacts read endpoints should require authentication and return stable errors."""
+
+    client = TestClient(app)
+
+    list_response = client.get("/contacts")
+    search_response = client.get("/contacts/search", params={"q": "registrar"})
+    detail_response = client.get(f"/contacts/{uuid4()}")
+
+    assert list_response.status_code == 401
+    assert search_response.status_code == 401
+    assert detail_response.status_code == 401
+    assert list_response.json()["detail"]["code"] == "UNAUTHORIZED"

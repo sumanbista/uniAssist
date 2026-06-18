@@ -59,6 +59,27 @@ UniAssist now includes a governed Forms workflow for admin-managed PDF forms:
 - Deadline responses include a safe related form summary when a deadline is linked to a form.
 - Mixed orchestration queries such as `withdrawal form deadline` can retrieve forms, traverse relationships, and return related deadline context.
 
+## Contacts Directory
+
+UniAssist includes a governed Contacts Directory backend domain for university
+directory records:
+
+- Authenticated users can list, retrieve, and search visible contact records.
+- Admin-class users can create contact records for their JWT-scoped university.
+- Student and faculty reads return only verified or published contacts.
+- Admin-class users may also inspect pending review and stale contacts.
+- Rejected, archived, and deprecated contacts remain hidden from retrieval.
+- The deterministic orchestrator can route contact questions to `contact_lookup`.
+
+Example contact queries:
+
+```text
+Who is the registrar?
+Contact financial aid.
+CS department phone number.
+Dean of students office.
+```
+
 ## Tech Stack
 
 - Frontend: Next.js, React, Tailwind CSS
@@ -80,6 +101,7 @@ backend/
       auth/              # roles and tool authorization guard
       analytics/         # analytics aggregation service
       calendar/          # governed academic calendar records and calendar_query tool
+      contacts/          # governed university directory records and contact_lookup
       deadlines/         # governed deadlines and deadline_query tool
       forms/             # governed institutional forms, search, and PDF access
       documents/         # placeholder future domain
@@ -227,6 +249,17 @@ GET /deadlines/{deadline_id}
 POST /deadlines
 ```
 
+Governed Contacts APIs:
+
+```text
+GET /contacts
+GET /contacts/search?q=
+GET /contacts/search?department=
+GET /contacts/search?contact_type=
+GET /contacts/{contact_id}
+POST /contacts
+```
+
 Workflow relationship and orchestration APIs:
 
 ```text
@@ -234,10 +267,10 @@ POST /relationships/traverse
 POST /orchestrator/query
 ```
 
-All governed Calendar and Deadline read endpoints are tenant-scoped from the
-authenticated JWT. Student and faculty reads return only verified or published
-records. Admin-class users may also inspect pending review and stale records.
-Rejected, archived, and deprecated records stay hidden.
+All governed Calendar, Deadline, and Contacts read endpoints are tenant-scoped
+from the authenticated JWT. Student and faculty reads return only verified or
+published records. Admin-class users may also inspect pending review and stale
+records. Rejected, archived, and deprecated records stay hidden.
 
 Unauthenticated or non-admin analytics requests return an auth error:
 
@@ -254,6 +287,13 @@ Unauthenticated or non-admin analytics requests return an auth error:
 - Rejected, archived, and deprecated forms are excluded from retrieval and blocked from PDF file access.
 - Deadline `related_form_id` links are validated against the JWT tenant and cannot reference cross-tenant, rejected, archived, or deprecated forms.
 - Enriched Form and Deadline responses expose safe summaries only; raw form `storage_path` values are not returned.
+
+## Contacts Security Notes
+
+- Contacts read endpoints require authentication and derive tenant scope from the JWT.
+- Contact creation is limited to `admin`, `university_admin`, and `super_admin`.
+- Client-supplied tenant headers and request-body `university_id` values do not override JWT scope.
+- Contact responses do not expose ORM-only internal fields such as `metadata_` or `is_active`.
 
 ## Demo Flow
 
