@@ -1,11 +1,14 @@
 """FastAPI routes for constrained retrieval orchestration."""
 
+import inspect
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.calendar.repositories import CalendarRepository
+from app.domains.calendar.services import CalendarService
 from app.domains.forms.repositories import FormsRepository
 from app.domains.forms.retrieval import FormsRetrievalService
 from app.domains.orchestration.schemas import (
@@ -13,6 +16,7 @@ from app.domains.orchestration.schemas import (
     OrchestrationResponse,
 )
 from app.domains.orchestration.services import (
+    CalendarQueryTool,
     FormsSearchTool,
     RelationshipLookupTool,
     RetrievalOrchestrator,
@@ -44,6 +48,7 @@ def get_retrieval_orchestrator(
     registry = ToolRegistry()
     registry.register(FormsSearchTool(forms_service))
     registry.register(SemanticFormsSearchTool(forms_service))
+    registry.register(CalendarQueryTool(CalendarService(CalendarRepository(session))))
     registry.register(
         RelationshipLookupTool(
             service=relationships_service,
@@ -68,6 +73,14 @@ async def execute_orchestrated_query(
 ) -> OrchestrationResponse:
     """Execute a bounded deterministic retrieval orchestration plan."""
 
+    execute_params = inspect.signature(orchestrator.execute_query).parameters
+    if "role" in execute_params:
+        return await orchestrator.execute_query(
+            query=request.query,
+            university_id=current_user.university_id,
+            role=current_user.role,
+            correlation_id=correlation_id,
+        )
     return await orchestrator.execute_query(
         query=request.query,
         university_id=current_user.university_id,

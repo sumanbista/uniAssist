@@ -22,6 +22,7 @@ class OrchestrationToolName(StrEnum):
     FORMS_SEARCH = "forms_search"
     SEMANTIC_FORMS_SEARCH = "semantic_forms_search"
     RELATIONSHIP_LOOKUP = "relationship_lookup"
+    CALENDAR_QUERY = "calendar_query"
 
 
 class OrchestrationRequest(BaseModel):

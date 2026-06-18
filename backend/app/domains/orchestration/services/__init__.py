@@ -6,6 +6,7 @@ from app.domains.orchestration.services.tool_registry import (
     OrchestrationTool,
     ToolRegistry,
 )
+from app.domains.orchestration.services.calendar_tool import CalendarQueryTool
 from app.domains.orchestration.services.tools import (
     FormsSearchTool,
     RelationshipLookupTool,
@@ -13,6 +14,7 @@ from app.domains.orchestration.services.tools import (
 )
 
 __all__ = [
+    "CalendarQueryTool",
     "FormsSearchTool",
     "OrchestrationTool",
     "RelationshipLookupTool",

@@ -49,6 +49,7 @@ class Settings(BaseSettings):
         "forms_search",
         "semantic_forms_search",
         "relationship_lookup",
+        "calendar_query",
     ]
     ORCHESTRATION_MAX_STEPS: int = 3
     ORCHESTRATION_TOOL_TIMEOUT_SECONDS: float = 5.0

@@ -1,11 +1,13 @@
 """Explicit tool registry for deterministic orchestration dispatch."""
 
 import time
+import inspect
 from abc import ABC, abstractmethod
 from typing import Any
 from uuid import UUID
 
 from app.core.logging import get_logger
+from app.domains.auth.models.roles import UserRole
 from app.domains.orchestration.schemas import (
     ExecutionStep,
     OrchestrationStatus,
@@ -27,6 +29,7 @@ class OrchestrationTool(ABC):
         step: ExecutionStep,
         university_id: UUID,
         prior_results: list[ToolExecutionResult],
+        role: UserRole = UserRole.STUDENT,
     ) -> ToolExecutionResult:
         """Execute the tool and return a structured result."""
 
@@ -55,6 +58,7 @@ class ToolRegistry:
         step: ExecutionStep,
         university_id: UUID,
         prior_results: list[ToolExecutionResult],
+        role: UserRole = UserRole.STUDENT,
     ) -> ToolExecutionResult:
         """Dispatch a registered tool deterministically."""
 
@@ -67,10 +71,12 @@ class ToolRegistry:
                 step.step_id,
                 university_id,
             )
-            return await self._tools[step.tool_name].run(
+            return await self._run_tool(
+                tool=self._tools[step.tool_name],
                 step=step,
                 university_id=university_id,
                 prior_results=prior_results,
+                role=role,
             )
         except Exception as exc:
             latency_ms = max(0, round((time.perf_counter() - started_at) * 1000))
@@ -94,3 +100,27 @@ class ToolRegistry:
         """Return registered tools in deterministic order."""
 
         return sorted(self._tools, key=lambda tool_name: tool_name.value)
+
+    @staticmethod
+    async def _run_tool(
+        tool: OrchestrationTool,
+        step: ExecutionStep,
+        university_id: UUID,
+        prior_results: list[ToolExecutionResult],
+        role: UserRole,
+    ) -> ToolExecutionResult:
+        """Run tools while preserving compatibility with older adapters."""
+
+        parameters = inspect.signature(tool.run).parameters
+        if "role" in parameters:
+            return await tool.run(
+                step=step,
+                university_id=university_id,
+                prior_results=prior_results,
+                role=role,
+            )
+        return await tool.run(
+            step=step,
+            university_id=university_id,
+            prior_results=prior_results,
+        )

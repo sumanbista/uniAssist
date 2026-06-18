@@ -39,11 +39,7 @@ class RetrievalPlanner:
     ) -> ExecutionPlan:
         """Build a fixed, allowlisted execution plan for the query."""
 
-        tool_order = [
-            OrchestrationToolName.FORMS_SEARCH,
-            OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
-            OrchestrationToolName.RELATIONSHIP_LOOKUP,
-        ]
+        tool_order = self._tool_order(query)
         selected_tools = [
             tool_name
             for tool_name in tool_order
@@ -68,3 +64,31 @@ class RetrievalPlanner:
             correlation_id=correlation_id,
             status=OrchestrationStatus.SUCCESS,
         )
+
+    @staticmethod
+    def _tool_order(query: str) -> list[OrchestrationToolName]:
+        """Choose a deterministic tool order from lightweight query signals."""
+
+        normalized_query = query.casefold()
+        calendar_keywords = (
+            "calendar",
+            "semester",
+            "holiday",
+            "break",
+            "final",
+            "registration period",
+            "term date",
+        )
+        if any(keyword in normalized_query for keyword in calendar_keywords):
+            return [
+                OrchestrationToolName.CALENDAR_QUERY,
+                OrchestrationToolName.FORMS_SEARCH,
+                OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
+                OrchestrationToolName.RELATIONSHIP_LOOKUP,
+            ]
+        return [
+            OrchestrationToolName.FORMS_SEARCH,
+            OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
+            OrchestrationToolName.RELATIONSHIP_LOOKUP,
+            OrchestrationToolName.CALENDAR_QUERY,
+        ]

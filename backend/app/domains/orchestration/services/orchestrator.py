@@ -5,6 +5,7 @@ import time
 from uuid import UUID, uuid4
 
 from app.core.logging import get_logger
+from app.domains.auth.models.roles import UserRole
 from app.domains.orchestration.schemas import (
     ExecutionStep,
     OrchestrationResponse,
@@ -33,6 +34,7 @@ class RetrievalOrchestrator:
         self,
         query: str,
         university_id: UUID,
+        role: UserRole = UserRole.STUDENT,
         correlation_id: UUID | None = None,
     ) -> OrchestrationResponse:
         """Execute a tenant-scoped query through a bounded retrieval plan."""
@@ -60,6 +62,7 @@ class RetrievalOrchestrator:
                         step=step,
                         university_id=university_id,
                         prior_results=step_results,
+                        role=role,
                     ),
                     timeout=step.timeout_seconds,
                 )
