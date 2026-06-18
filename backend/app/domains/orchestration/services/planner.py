@@ -79,6 +79,22 @@ class RetrievalPlanner:
             "registration period",
             "term date",
         )
+        deadline_keywords = (
+            "deadline",
+            "due",
+            "add/drop",
+            "withdraw",
+            "graduation",
+            "tuition",
+            "financial aid",
+        )
+        if any(keyword in normalized_query for keyword in deadline_keywords):
+            return [
+                OrchestrationToolName.DEADLINE_QUERY,
+                OrchestrationToolName.FORMS_SEARCH,
+                OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
+                OrchestrationToolName.RELATIONSHIP_LOOKUP,
+            ]
         if any(keyword in normalized_query for keyword in calendar_keywords):
             return [
                 OrchestrationToolName.CALENDAR_QUERY,
@@ -91,4 +107,5 @@ class RetrievalPlanner:
             OrchestrationToolName.SEMANTIC_FORMS_SEARCH,
             OrchestrationToolName.RELATIONSHIP_LOOKUP,
             OrchestrationToolName.CALENDAR_QUERY,
+            OrchestrationToolName.DEADLINE_QUERY,
         ]
