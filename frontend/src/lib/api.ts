@@ -622,6 +622,9 @@ function normalizeFormResult(value: unknown): FormResult | null {
   if (!isRecord(value)) {
     return null;
   }
+  if (isContactLikeRecord(value)) {
+    return null;
+  }
   const rawId = value.form_id ?? value.id;
   const title = safeString(value.title);
   if (!isUuidLike(rawId) || !title) {
@@ -703,7 +706,7 @@ function collectContactContainers(value: unknown): unknown[] {
   if (isRecord(value.data)) {
     containers.push(value.data);
   }
-  if (isRecord(value.results)) {
+  if (isRecord(value.results) && !Array.isArray(value.results)) {
     containers.push(value.results);
     const contactLookup = value.results.contact_lookup;
     if (Array.isArray(contactLookup)) {
@@ -715,6 +718,15 @@ function collectContactContainers(value: unknown): unknown[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isContactLikeRecord(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.contact_type === "string" ||
+    typeof value.email === "string" ||
+    typeof value.office_location === "string" ||
+    typeof value.office_hours === "string"
+  );
 }
 
 function safeString(value: unknown): string | null {

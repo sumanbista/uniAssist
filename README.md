@@ -70,6 +70,8 @@ directory records:
 - Admin-class users may also inspect pending review and stale contacts.
 - Rejected, archived, and deprecated contacts remain hidden from retrieval.
 - The deterministic orchestrator can route contact questions to `contact_lookup`.
+- The chat UI renders verified contact lookup results as contact cards with
+  safe email, phone, office, verification, and source details.
 
 Example contact queries:
 
@@ -227,6 +229,14 @@ POST /governance/reviews/decision
 GET /forms/search?q=
 GET /forms/search?q=&include_deadlines=true
 GET /forms/{form_id}/file
+```
+
+Contacts Directory:
+
+```text
+GET /contacts
+GET /contacts/search?q=
+GET /contacts/{contact_id}
 ```
 
 Governed Calendar APIs:
