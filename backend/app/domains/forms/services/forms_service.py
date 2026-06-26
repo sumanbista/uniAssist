@@ -2,9 +2,14 @@
 
 from uuid import UUID
 
+from app.domains.auth.models.roles import UserRole
 from app.domains.forms.models import Form
 from app.domains.forms.repositories import FormsRepository
 from app.domains.forms.schemas import FormCreate
+
+PUBLIC_VISIBLE_STATUSES = ("verified", "published")
+ADMIN_VISIBLE_STATUSES = ("pending_review", "stale", "verified", "published")
+ADMIN_ROLES = {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN, UserRole.SUPER_ADMIN}
 
 
 class FormsService:
@@ -28,6 +33,7 @@ class FormsService:
     async def list_forms(
         self,
         university_id: UUID,
+        role: UserRole | None,
         limit: int,
         offset: int,
         query: str | None = None,
@@ -36,12 +42,15 @@ class FormsService:
     ) -> tuple[list[Form], int]:
         """List or search tenant-scoped forms."""
 
+        statuses = self._visible_statuses(role)
         if query and query.strip():
             return await self.repository.search_forms_by_title(
                 university_id=university_id,
                 title_query=query,
                 limit=limit,
                 offset=offset,
+                visible_statuses=statuses,
+                visible_verification_statuses=statuses,
             )
         return await self.repository.list_forms(
             university_id=university_id,
@@ -49,6 +58,8 @@ class FormsService:
             offset=offset,
             category=category,
             status=status,
+            visible_statuses=statuses,
+            visible_verification_statuses=statuses,
         )
 
     async def _run_validation_hooks(self, form_data: FormCreate) -> None:
@@ -60,3 +71,11 @@ class FormsService:
         """Placeholder for future governance integration hooks."""
 
         return None
+
+    @staticmethod
+    def _visible_statuses(role: UserRole | None) -> tuple[str, ...]:
+        """Return lifecycle states visible to this role."""
+
+        if role in ADMIN_ROLES:
+            return ADMIN_VISIBLE_STATUSES
+        return PUBLIC_VISIBLE_STATUSES

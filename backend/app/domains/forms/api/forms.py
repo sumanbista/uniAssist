@@ -221,6 +221,7 @@ async def list_forms(
 
     forms, total = await service.list_forms(
         university_id=current_user.university_id,
+        role=current_user.role,
         limit=limit,
         offset=offset,
         query=q,

@@ -54,13 +54,10 @@ class SupabaseJWTVerifier:
         """Map verified JWT claims to the canonical user context."""
 
         app_metadata = _claim_object(claims.get("app_metadata"))
-        user_metadata = _claim_object(claims.get("user_metadata"))
-        role = app_metadata.get("role") or user_metadata.get("role")
-        university_id = app_metadata.get("university_id") or user_metadata.get("university_id")
-        permissions = app_metadata.get("permissions") or user_metadata.get("permissions") or []
-        department_scope = (
-            app_metadata.get("department_scope") or user_metadata.get("department_scope")
-        )
+        role = _extract_role(claims, app_metadata)
+        university_id = _extract_university_id(claims, app_metadata)
+        permissions = _extract_permissions(app_metadata)
+        department_scope = app_metadata.get("department_scope")
 
         if not isinstance(role, str) or not isinstance(university_id, str):
             raise ValueError("required authorization claims are missing")
@@ -80,6 +77,54 @@ def _claim_object(value: object) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
+
+
+def _extract_role(
+    claims: dict[str, Any],
+    app_metadata: dict[str, Any],
+) -> object:
+    """Return the UniAssist role from Supabase-compatible claims."""
+
+    authorization = _claim_object(app_metadata.get("authorization"))
+    top_level_role = claims.get("uniassist_role") or claims.get("app_role")
+    if isinstance(top_level_role, str):
+        return top_level_role
+    for container in (app_metadata, authorization):
+        value = container.get("role")
+        if isinstance(value, str) and value != "authenticated":
+            return value
+    roles = app_metadata.get("roles")
+    if isinstance(roles, list):
+        for value in roles:
+            if isinstance(value, str) and value != "authenticated":
+                return value
+    claim_role = claims.get("role")
+    if isinstance(claim_role, str) and claim_role != "authenticated":
+        return claim_role
+    return None
+
+
+def _extract_university_id(
+    claims: dict[str, Any],
+    app_metadata: dict[str, Any],
+) -> object:
+    """Return the tenant UUID from supported Supabase metadata locations."""
+
+    authorization = _claim_object(app_metadata.get("authorization"))
+    return (
+        app_metadata.get("university_id")
+        or authorization.get("university_id")
+        or claims.get("university_id")
+    )
+
+
+def _extract_permissions(app_metadata: dict[str, Any]) -> list[str]:
+    """Return string permissions from Supabase metadata."""
+
+    value = app_metadata.get("permissions") or []
+    if not isinstance(value, list):
+        return []
+    return [permission for permission in value if isinstance(permission, str)]
 
 
 supabase_jwt_verifier = SupabaseJWTVerifier()

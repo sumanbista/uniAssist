@@ -86,7 +86,8 @@ Dean of students office.
 
 - Frontend: Next.js, React, Tailwind CSS
 - Backend: FastAPI, Pydantic
-- Persistence: SQLite
+- Persistence: Supabase Postgres with pgvector, plus local SQLite query analytics
+- Authentication: Supabase-compatible JWTs
 - Testing: Python `unittest`, FastAPI `TestClient`, ESLint, Next.js build checks
 - Future model integration: OpenAI-compatible router and response synthesis layer
 
@@ -199,6 +200,35 @@ Backend settings use the `UNIASSIST_` prefix. Example:
 
 ```bash
 UNIASSIST_LOG_DB_PATH=/path/to/query_logs.sqlite3
+```
+
+Supabase-backed local development also requires:
+
+```bash
+SUPABASE_DB_URL=postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require
+UNIASSIST_SUPABASE_JWT_SECRET=<supabase-jwt-secret>
+UNIASSIST_SUPABASE_JWT_ISSUER=https://<project-ref>.supabase.co/auth/v1
+UNIASSIST_SUPABASE_JWT_AUDIENCE=authenticated
+```
+
+Run migrations and seed Caldwell smoke data:
+
+```bash
+cd backend
+alembic upgrade head
+python3 scripts/seed_caldwell_smoke_data.py
+```
+
+Generate a development-only JWT for local testing:
+
+```bash
+python3 scripts/create_demo_jwt.py student
+```
+
+Run the Supabase/local FastAPI smoke test after starting the backend:
+
+```bash
+python3 scripts/smoke_test.py
 ```
 
 ## API Overview

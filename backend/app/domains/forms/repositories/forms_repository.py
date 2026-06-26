@@ -69,6 +69,8 @@ class FormsRepository:
         offset: int,
         category: str | None = None,
         status: str | None = None,
+        visible_statuses: tuple[str, ...] | None = None,
+        visible_verification_statuses: tuple[str, ...] | None = None,
     ) -> tuple[list[Form], int]:
         """List tenant-scoped forms with optional retrieval filters."""
 
@@ -77,6 +79,14 @@ class FormsRepository:
             Form.university_id == university_id,
             Form.is_active.is_(True),
         )
+        if visible_statuses is not None:
+            query = query.where(Form.status.in_(visible_statuses))
+            count_query = count_query.where(Form.status.in_(visible_statuses))
+        if visible_verification_statuses is not None:
+            query = query.where(Form.verification_status.in_(visible_verification_statuses))
+            count_query = count_query.where(
+                Form.verification_status.in_(visible_verification_statuses)
+            )
         if category is not None:
             query = query.where(Form.category == category)
             count_query = count_query.where(Form.category == category)
@@ -96,6 +106,8 @@ class FormsRepository:
         title_query: str,
         limit: int,
         offset: int,
+        visible_statuses: tuple[str, ...] | None = None,
+        visible_verification_statuses: tuple[str, ...] | None = None,
     ) -> tuple[list[Form], int]:
         """Search tenant-scoped forms by title."""
 
@@ -112,6 +124,14 @@ class FormsRepository:
                 Form.title.ilike(normalized_query),
             )
         )
+        if visible_statuses is not None:
+            query = query.where(Form.status.in_(visible_statuses))
+            count_query = count_query.where(Form.status.in_(visible_statuses))
+        if visible_verification_statuses is not None:
+            query = query.where(Form.verification_status.in_(visible_verification_statuses))
+            count_query = count_query.where(
+                Form.verification_status.in_(visible_verification_statuses)
+            )
         rows = await self.session.execute(
             query.order_by(Form.title.asc()).limit(limit).offset(offset)
         )

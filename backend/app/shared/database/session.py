@@ -26,6 +26,12 @@ def create_engine(settings: DatabaseSettings | None = None) -> AsyncEngine:
         max_overflow=database_settings.DB_MAX_OVERFLOW,
         pool_timeout=database_settings.DB_POOL_TIMEOUT_SECONDS,
         pool_pre_ping=True,
+        pool_recycle=1800,
+        connect_args={
+            "server_settings": {
+                "search_path": "public,extensions",
+            },
+        },
     )
 
 

@@ -3,8 +3,11 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import {
+  clearStoredAuthToken,
   extractContactResults,
   extractFormResults,
+  getStoredAuthToken,
+  saveStoredAuthToken,
   searchContacts,
   searchForms,
   sendQuery,
@@ -33,6 +36,7 @@ export function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [role, setRole] = useState<UserRole>("student");
+  const [jwtInput, setJwtInput] = useState(() => getStoredAuthToken());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -122,7 +126,33 @@ export function Chat() {
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
             <RoleSwitcher value={role} onChange={setRole} />
-            <p className="text-sm text-zinc-500">Connected to /query</p>
+            <div className="flex w-full max-w-md gap-2 sm:w-96">
+              <input
+                aria-label="Development JWT"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 text-xs text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                onChange={(event) => setJwtInput(event.target.value)}
+                placeholder="Paste development JWT"
+                type="password"
+                value={jwtInput}
+              />
+              <button
+                className="h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                onClick={() => saveStoredAuthToken(jwtInput)}
+                type="button"
+              >
+                Save
+              </button>
+              <button
+                className="h-9 rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                onClick={() => {
+                  clearStoredAuthToken();
+                  setJwtInput("");
+                }}
+                type="button"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
       </header>

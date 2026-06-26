@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from typing import Self
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,6 +28,7 @@ class DatabaseSettings(BaseSettings):
     DB_MAX_OVERFLOW: int = Field(default=10)
     DB_POOL_TIMEOUT_SECONDS: int = Field(default=30)
     DB_ECHO_SQL: bool = Field(default=False)
+    DB_SSL_MODE: str = Field(default="require")
 
     @field_validator(
         "SUPABASE_DB_URL",
@@ -52,6 +54,8 @@ class DatabaseSettings(BaseSettings):
             raise ValueError("DB_MAX_OVERFLOW cannot be negative")
         if self.DB_POOL_TIMEOUT_SECONDS < 1:
             raise ValueError("DB_POOL_TIMEOUT_SECONDS must be at least 1")
+        if self.DB_SSL_MODE not in {"disable", "allow", "prefer", "require"}:
+            raise ValueError("DB_SSL_MODE must be disable, allow, prefer, or require")
         return self
 
     @property
@@ -66,20 +70,51 @@ class DatabaseSettings(BaseSettings):
 
         if self.SUPABASE_DB_URL is None:
             raise RuntimeError("SUPABASE_DB_URL is not configured")
-        return normalize_postgres_url(self.SUPABASE_DB_URL.get_secret_value())
+        return normalize_postgres_url(
+            self.SUPABASE_DB_URL.get_secret_value(),
+            ssl_mode=self.DB_SSL_MODE,
+        )
+
+    @property
+    def sqlalchemy_sync_database_url(self) -> str:
+        """Return a synchronous SQLAlchemy URL for tooling that needs psycopg."""
+
+        if self.SUPABASE_DB_URL is None:
+            raise RuntimeError("SUPABASE_DB_URL is not configured")
+        return normalize_postgres_url(
+            self.SUPABASE_DB_URL.get_secret_value(),
+            async_driver=False,
+            ssl_mode=self.DB_SSL_MODE,
+        )
 
 
-def normalize_postgres_url(database_url: str) -> str:
-    """Normalize Postgres URLs for SQLAlchemy's asyncpg dialect."""
+def normalize_postgres_url(
+    database_url: str,
+    *,
+    async_driver: bool = True,
+    ssl_mode: str = "require",
+) -> str:
+    """Normalize Postgres URLs for SQLAlchemy and Supabase SSL."""
 
     stripped_url = database_url.strip()
-    if stripped_url.startswith("postgresql+asyncpg://"):
-        return stripped_url
-    if stripped_url.startswith("postgres://"):
-        return stripped_url.replace("postgres://", "postgresql+asyncpg://", 1)
-    if stripped_url.startswith("postgresql://"):
-        return stripped_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return stripped_url
+    split_url = urlsplit(stripped_url)
+    scheme = split_url.scheme
+    if scheme == "postgres":
+        scheme = "postgresql"
+    if scheme.startswith("postgresql"):
+        scheme = "postgresql+asyncpg" if async_driver else "postgresql"
+    query_items = dict(parse_qsl(split_url.query, keep_blank_values=True))
+    if ssl_mode != "disable" and "sslmode" not in query_items:
+        query_items["sslmode"] = ssl_mode
+    return urlunsplit(
+        (
+            scheme,
+            split_url.netloc,
+            split_url.path,
+            urlencode(query_items),
+            split_url.fragment,
+        )
+    )
 
 
 @lru_cache

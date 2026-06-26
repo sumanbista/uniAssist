@@ -144,6 +144,7 @@ export type ReviewDecisionResponse = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
+const JWT_STORAGE_KEY = "uniassist_jwt";
 
 export async function sendQuery(
   query: string,
@@ -459,6 +460,32 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export function getStoredAuthToken(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem(JWT_STORAGE_KEY)?.trim() || "";
+}
+
+export function saveStoredAuthToken(token: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const normalizedToken = token.trim();
+  if (normalizedToken) {
+    window.localStorage.setItem(JWT_STORAGE_KEY, normalizedToken);
+  } else {
+    window.localStorage.removeItem(JWT_STORAGE_KEY);
+  }
+}
+
+export function clearStoredAuthToken(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(JWT_STORAGE_KEY);
+}
+
 function authToken(): string | null {
   const envToken = process.env.NEXT_PUBLIC_DEMO_JWT?.trim();
   if (envToken) {
@@ -467,7 +494,38 @@ function authToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  return window.localStorage.getItem("uniassist_jwt")?.trim() || null;
+  const storedToken = getStoredAuthToken();
+  if (!storedToken) {
+    return null;
+  }
+  if (isExpiredJwt(storedToken)) {
+    clearStoredAuthToken();
+    return null;
+  }
+  return storedToken;
+}
+
+function isExpiredJwt(token: string): boolean {
+  const [, payload] = token.split(".");
+  if (!payload) {
+    return false;
+  }
+  try {
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "=",
+    );
+    const decodedPayload = JSON.parse(
+      window.atob(paddedPayload),
+    ) as unknown;
+    if (!isRecord(decodedPayload) || typeof decodedPayload.exp !== "number") {
+      return false;
+    }
+    return decodedPayload.exp <= Math.floor(Date.now() / 1000);
+  } catch {
+    return false;
+  }
 }
 
 function validateFormSearchResponse(value: unknown): FormSearchResponse {
